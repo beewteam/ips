@@ -18,6 +18,7 @@ type server struct {
 	userNumber	int
 }
 
+
 func (s *server) addMessage(msg string) {
 	s.allMsg = append(s.allMsg, msg)
 }
@@ -26,12 +27,22 @@ func (s server) getMessage(n int) string {
 	return s.allMsg[n]
 }
 
+func (s server) getGreetingMsg() string {
+   return s.greetingMsg
+}
+
+func (s *server) setGreetingMsg(msg string) {
+	s.greetingMsg = msg
+
+}
+
 func main() {
 	dat, err := ioutil.ReadFile("./program-version")
 	check(err)
 	fmt.Print(string(dat))
 
 	server := server{"Hello", []string{}, "Test-Server", 0}
+
 	fmt.Printf("%s\n", server.greetingMsg)
 	
 	server.addMessage("new msg")
