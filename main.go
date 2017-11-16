@@ -1,7 +1,18 @@
 package main
 
-import "fmt"
+import (
+    "io/ioutil"
+	"fmt"
+)
+
+func check(e error) {
+    if e != nil {
+        panic(e)
+    }
+}
 
 func main() {
-    fmt.Println("Start")
+    dat, err := ioutil.ReadFile("./program-version")
+    check(err)
+    fmt.Print(string(dat))
 }
