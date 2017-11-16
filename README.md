@@ -11,3 +11,6 @@ If you want to run a project, you need to follow the instructions:
 * git build main.go
 * version.bat
 * main.exe
+
+# Requirements
+To successfully compile this program you need to install golang compiler, you can get it [here](https://golang.org/doc/install)
