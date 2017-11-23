@@ -14,7 +14,7 @@ func Pong(c net.Conn, pong string) bool {
 func Reg(c net.Conn, nick string, username string, fullname string) bool {
 	fmt.Fprintf(
 		c,
-		"NICK %s\r\nUSER %s 0 :%s\r\n",
+		"NICK %s\r\nUSER %s 0 0 :%s\r\n",
 		nick, username, fullname)
 	return true
 }

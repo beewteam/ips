@@ -3,6 +3,10 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"syscall"
+	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func main() {
@@ -13,18 +17,34 @@ func main() {
 	}
 	fmt.Print(string(dat))
 
+	var nick string
+	fmt.Printf("Nick: ")
+	fmt.Scanln(&nick)
+
+	fmt.Printf("Pass: ")
+	pass, err := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+
+	var chat string
+	fmt.Printf("Chat: ")
+	fmt.Scanln(&chat)
+
 	var client Client
-	client.username = "Vperus"
-	client.fullName = "Vperus"
-	if !client.Connect("chat.freenode.net", "8000") {
+	client.username = "test"
+	client.fullName = "test"
+	if !client.Connect("irc.freenode.net", "8000") {
 		return
 	}
 
-	if !client.Login("Chicken") {
+	if !client.Login(nick) {
 		return
 	}
 
-	client.JoinChannel("#go-nuts")
+	client.Auth(string(pass))
+
+	time.Sleep(10 * time.Second)
+
+	client.JoinChannel(chat)
 
 	for client.HandleData() {
 	}

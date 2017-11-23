@@ -43,8 +43,9 @@ func (c *Client) LeaveChannel() bool {
 
 func (c *Client) HandleData() bool {
 	message, _ := bufio.NewReader(c.conn).ReadString('\r')
-	fmt.Printf("Message:%s\n", message)
-
+	if len(message) > 0 {
+		fmt.Printf("Message:%s\n", message)
+	}
 	return true
 }
 
@@ -58,4 +59,8 @@ func (c *Client) LogMessage(nick string, msg string) bool {
 func (c *Client) Close() bool {
 	c.conn.Close()
 	return true
+}
+
+func (c *Client) Auth(passwd string) bool {
+	return Msg(c.conn, "NickServ", "IDENTIFY "+passwd)
 }
