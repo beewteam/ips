@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"time"
@@ -41,17 +42,8 @@ func (c *Client) LeaveChannel() bool {
 }
 
 func (c *Client) HandleData() bool {
-	var buffer []byte
-
-	if _, err := c.conn.Read(buffer); err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	if len(buffer) > 0 {
-		str := string(buffer[:])
-		fmt.Println(str)
-	}
+	message, _ := bufio.NewReader(c.conn).ReadString('\r')
+	fmt.Printf("Message:%s\n", message)
 
 	return true
 }
