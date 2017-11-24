@@ -16,6 +16,11 @@ type Client struct {
 	data     string
 }
 
+func (c *Client) SetNames(username string, fullName string) {
+	c.username = username
+	c.fullName = fullName
+}
+
 func (c *Client) Connect(server string, port string) bool {
 	conn, err := net.DialTimeout("tcp", server+":"+port, time.Second*10)
 	if err != nil {

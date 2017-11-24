@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"syscall"
 	"time"
 
@@ -10,40 +12,63 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+type StartupSettings struct {
+	Nickname string
+	Password string
+	Chat     string
+}
+
 func main() {
+	configFile := "./UserConfigs.json"
+
 	dat, err := ioutil.ReadFile("../program-version")
 	if err != nil {
 		fmt.Printf("%s\n", err)
-		return
+		os.Exit(1)
 	}
 	fmt.Print(string(dat))
 
-	var nick string
-	fmt.Printf("Nick: ")
-	fmt.Scanln(&nick)
+	settings := StartupSettings{}
+	if _, err := os.Stat(configFile); err == nil {
+		file, err := os.Open(configFile)
+		defer file.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 
-	fmt.Printf("Pass: ")
-	pass, err := terminal.ReadPassword(int(syscall.Stdin))
-	fmt.Println()
+		err = json.NewDecoder(file).Decode(&settings)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	} else {
+		fmt.Printf("Nick: ")
+		fmt.Scanln(&settings.Nickname)
 
-	var chat string
-	fmt.Printf("Chat: ")
-	fmt.Scanln(&chat)
+		fmt.Printf("Pass: ")
+		passBytes, _ := terminal.ReadPassword(int(syscall.Stdin))
+		settings.Password = string(passBytes)
+		fmt.Println()
 
-	var client irc.Client
+		fmt.Printf("Chat: ")
+		fmt.Scanln(&settings.Chat)
+	}
+
+	client := irc.Client{}
 	if !client.Connect("irc.freenode.net", "8000") {
-		return
+		os.Exit(1)
 	}
 
-	if !client.Login(nick) {
-		return
+	if !client.Login(settings.Nickname) {
+		os.Exit(1)
 	}
 
-	client.Auth(string(pass))
+	client.Auth(string(settings.Password))
 
+	// Should wait NOTIFY message
 	time.Sleep(10 * time.Second)
 
-	client.JoinChannel(chat)
+	client.JoinChannel(settings.Chat)
 
 	for client.HandleData() {
 	}
