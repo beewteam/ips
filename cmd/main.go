@@ -55,6 +55,7 @@ func main() {
 	}
 
 	client := irc.Client{}
+	client.SetNames("opq", "eqq")
 	if !client.Connect("irc.freenode.net", "8000") {
 		os.Exit(1)
 	}
