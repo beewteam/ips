@@ -1,7 +1,9 @@
 package irc
 
-import "net"
-import "fmt"
+import (
+	"fmt"
+	"net"
+)
 
 func Pong(c net.Conn, pong string) bool {
 	fmt.Fprintf(

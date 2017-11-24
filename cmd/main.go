@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/beewteam/ips/pkg/irc"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -29,9 +30,7 @@ func main() {
 	fmt.Printf("Chat: ")
 	fmt.Scanln(&chat)
 
-	var client Client
-	client.username = "test"
-	client.fullName = "test"
+	var client irc.Client
 	if !client.Connect("irc.freenode.net", "8000") {
 		return
 	}
