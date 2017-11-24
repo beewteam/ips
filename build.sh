@@ -1,5 +1,12 @@
-if [[ ! -e build ]]; then
-	mkdir build
-fi
-cd src
-go build -o ../build/irc
+build() {
+        if [[ ! -e build ]]; then
+                mkdir build
+        else
+                rm -rf build/*
+        fi
+
+        cd cmd
+        go build -o ../build/irc-client
+}
+
+build
