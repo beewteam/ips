@@ -2,15 +2,60 @@ package irc
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"strings"
 )
 
-func Pong(c net.Conn, pong string) bool {
-	fmt.Fprintf(
-		c,
-		"PONG :%s\r\n",
-		pong)
+type Command struct {
+	name     string
+	shortcut string
+	handler  func(c *Client, msg string) bool
+}
+
+var (
+	commands []Command
+)
+
+func isCommand(name string, cmd *Command) bool {
+	return cmd.name == name || cmd.shortcut == name
+}
+
+func SendCommand(w io.Writer, msg string) {
+	reply := msg + "\r\n"
+	fmt.Fprint(w, reply)
+}
+
+func PingHandler(c *Client, msg string) bool {
+	words := strings.Fields(msg)
+
+	if len(words) < 1 {
+		return false
+	}
+
+	reply := "PONG" + " " + words[1]
+	if len(words) == 3 {
+		reply = reply + words[2]
+	}
+
+	SendCommand(c.conn, reply)
+
 	return true
+}
+
+func Handle(c *Client, msg string) {
+	words := strings.Fields(msg)
+	for _, cmd := range commands {
+		if isCommand(words[0], &cmd) {
+			cmd.handler(c, msg)
+		}
+	}
+}
+
+func Init() {
+	commands = []Command{
+		{"PING", "PG", PingHandler},
+	}
 }
 
 func Reg(c net.Conn, nick string, username string, fullname string) bool {
