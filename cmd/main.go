@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"syscall"
 	"time"
@@ -19,14 +18,9 @@ type StartupSettings struct {
 }
 
 func main() {
-	configFile := "./UserConfigs.json"
+	fmt.Printf("Program version: %s\n", VERSION)
 
-	dat, err := ioutil.ReadFile("../program-version")
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
-	}
-	fmt.Print(string(dat))
+	configFile := "./UserConfigs.json"
 
 	settings := StartupSettings{}
 	if _, err := os.Stat(configFile); err == nil {
