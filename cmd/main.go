@@ -7,7 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/beewteam/ips/pkg/irc"
+	"../pkg/irc"
+
 	"golang.org/x/crypto/ssh/terminal"
 )
 
