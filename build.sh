@@ -16,6 +16,10 @@ VR
         echo "${programVersion}" > cmd/version.go 
 }
 
+resolve_deps() {
+        go get "golang.org/x/crypto/ssh/terminal"
+}
+
 build() {
         if [[ ! -d "build" ]]; then
                 mkdir build
@@ -23,6 +27,7 @@ build() {
                 rm -rf build/irc-client
         fi
 
+        resolve_deps
         generate_version
 
         cd "cmd"
