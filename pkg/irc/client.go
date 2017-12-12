@@ -6,17 +6,21 @@ import (
 	"time"
 )
 
-type Client struct {
+type Account struct {
 	Username string
 	FullName string
-	Channel  string
 	Nick     string
-	Data     string
-	Server   Server
+}
+
+type Client struct {
+	Account Account
+	Channel string
+	Data    string
+	Server  Server
 }
 
 func (c *Client) Login(nick string) bool {
-	return Reg(c.Server.Conn, nick, c.Username, c.FullName)
+	return Reg(c.Server.Conn, nick, c.Account.Username, c.Account.FullName)
 }
 
 func (c *Client) JoinChannel(channel string) bool {
@@ -39,7 +43,7 @@ func (c *Client) HandleData() bool {
 func (c *Client) LogMessage(nick string, msg string) bool {
 	fmt.Printf(
 		"%s - [%s] <%s> %s\n",
-		time.Now().String(), c.Channel, c.Nick, msg)
+		time.Now().String(), c.Channel, c.Account.Nick, msg)
 	return true
 }
 

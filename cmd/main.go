@@ -16,8 +16,10 @@ func main() {
 	var settings = ParseConfig(configFile)
 
 	var client = irc.Client{
-		Username: settings.UserData.Username,
-		FullName: settings.UserData.FullName,
+		Account: irc.Account{
+			Username: settings.UserData.Username,
+			FullName: settings.UserData.FullName,
+		},
 		Server: irc.Server{
 			Hostname: settings.ServerData.Hostname,
 			Port:     settings.ServerData.Port},
