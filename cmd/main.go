@@ -15,28 +15,28 @@ func main() {
 	var settings = ParseConfig(configFile)
 
 	var server = irc.Server{
-		Hostname: "irc.freenode.net",
-		Port:     "8000"}
+		Hostname: settings.ServerData.Hostname,
+		Port:     settings.ServerData.Port}
 	var client = irc.Client{
-		Username: "In work",
-		FullName: "In work",
+		Username: settings.UserData.Username,
+		FullName: settings.UserData.FullName,
 		Server:   server,
 	}
 
-	if !server.Connect() {
+	if !client.Server.Connect() {
 		os.Exit(1)
 	}
 
-	if !client.Login(settings.Nickname) {
+	if !client.Login(settings.UserData.Nickname) {
 		os.Exit(1)
 	}
 
-	client.Auth(string(settings.Password))
+	client.Auth(string(settings.UserData.Password))
 
 	// Should wait NOTIFY message
 	time.Sleep(10 * time.Second)
 
-	client.JoinChannel(settings.Chat)
+	client.JoinChannel(settings.UserData.Chat)
 
 	for client.HandleData() {
 	}

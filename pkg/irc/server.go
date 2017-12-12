@@ -13,6 +13,8 @@ type Server struct {
 }
 
 func (s *Server) Connect() bool {
+	fmt.Printf("Connecting to %s at port %s\n", s.Hostname, s.Port)
+
 	conn, err := net.DialTimeout("tcp", s.Hostname+":"+s.Port, time.Second*10)
 	if err != nil {
 		fmt.Println(err)

@@ -4,19 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"syscall"
-
-	"golang.org/x/crypto/ssh/terminal"
 )
 
-type StartupSettings struct {
-	Nickname string
-	Password string
-	Chat     string
+type UserConfig struct {
+	UserData struct {
+		Username string
+		FullName string
+		Nickname string
+		Password string
+		Chat     string
+	}
+	ServerData struct {
+		Hostname string
+		Port     string
+	}
 }
 
-func ParseConfig(configPath string) StartupSettings {
-	settings := StartupSettings{}
+func ParseConfig(configPath string) UserConfig {
+	settings := UserConfig{}
 	if _, err := os.Stat(configPath); err == nil {
 		file, err := os.Open(configPath)
 		defer file.Close()
@@ -30,7 +35,7 @@ func ParseConfig(configPath string) StartupSettings {
 			os.Exit(1)
 		}
 	} else {
-		fmt.Printf("Nick: ")
+		/*fmt.Printf("Nick: ")
 		fmt.Scanln(&settings.Nickname)
 
 		fmt.Printf("Pass: ")
@@ -39,7 +44,7 @@ func ParseConfig(configPath string) StartupSettings {
 		fmt.Println()
 
 		fmt.Printf("Chat: ")
-		fmt.Scanln(&settings.Chat)
+		fmt.Scanln(&settings.Chat)*/
 	}
 	return settings
 }
