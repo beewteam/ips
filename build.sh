@@ -27,7 +27,7 @@ build() {
                 rm -rf build/irc-client
         fi
 
-        resolve_depsg
+        resolve_deps
         generate_version
 
         cd "cmd"
