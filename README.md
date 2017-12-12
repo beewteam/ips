@@ -1,4 +1,7 @@
 # IPS L6
+
+[![Build Status](https://travis-ci.org/beewteam/ips.svg?branch=master)](https://travis-ci.org/beewteam/ips)
+
 Hello, Newcomer!
 
 Don't spend your time on this repo, it's entirely done for university work and doesn't contain any interesting 
