@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -o pipefail
+set -o errexit
+
 PROJECT_DIR=$(pwd)
 
 generate_version() {
