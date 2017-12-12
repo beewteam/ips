@@ -3,51 +3,38 @@ package irc
 import (
 	"bufio"
 	"fmt"
-	"net"
 	"time"
 )
 
 type Client struct {
-	conn     net.Conn
-	username string
-	fullName string
-	channel  string
-	nick     string
-	data     string
+	Username string
+	FullName string
+	Channel  string
+	Nick     string
+	Data     string
+	Server   Server
 }
 
 func (c *Client) SetNames(username string, fullName string) {
-	c.username = username
-	c.fullName = fullName
-}
-
-func (c *Client) Connect(server string, port string) bool {
-	conn, err := net.DialTimeout("tcp", server+":"+port, time.Second*10)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	c.conn = conn
-
-	return true
+	c.Username = username
+	c.FullName = fullName
 }
 
 func (c *Client) Login(nick string) bool {
-	return Reg(c.conn, nick, c.username, c.fullName)
+	return Reg(c.Server.Conn, nick, c.Username, c.FullName)
 }
 
 func (c *Client) JoinChannel(channel string) bool {
-	c.channel = channel
-	return Join(c.conn, channel)
+	c.Channel = channel
+	return Join(c.Server.Conn, channel)
 }
 
 func (c *Client) LeaveChannel() bool {
-	return Part(c.conn, c.channel)
+	return Part(c.Server.Conn, c.Channel)
 }
 
 func (c *Client) HandleData() bool {
-	message, _ := bufio.NewReader(c.conn).ReadString('\r')
+	message, _ := bufio.NewReader(c.Server.Conn).ReadString('\r')
 	if len(message) > 0 {
 		fmt.Printf("Message:%s\n", message)
 	}
@@ -57,15 +44,15 @@ func (c *Client) HandleData() bool {
 func (c *Client) LogMessage(nick string, msg string) bool {
 	fmt.Printf(
 		"%s - [%s] <%s> %s\n",
-		time.Now().String(), c.channel, c.nick, msg)
+		time.Now().String(), c.Channel, c.Nick, msg)
 	return true
 }
 
 func (c *Client) Close() bool {
-	c.conn.Close()
+	c.Server.Conn.Close()
 	return true
 }
 
 func (c *Client) Auth(passwd string) bool {
-	return Msg(c.conn, "NickServ", "IDENTIFY "+passwd)
+	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
 }

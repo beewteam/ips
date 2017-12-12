@@ -49,11 +49,15 @@ func main() {
 		fmt.Scanln(&settings.Chat)
 	}
 
+	var server = irc.Server{
+		Hostname: "irc.freenode.net",
+		Port:     "8000"}
 	client := irc.Client{}
 	client.SetNames("opq", "eqq")
-	if !client.Connect("irc.freenode.net", "8000") {
+	if !server.Connect() {
 		os.Exit(1)
 	}
+	client.Server = server
 
 	if !client.Login(settings.Nickname) {
 		os.Exit(1)

@@ -38,7 +38,7 @@ func PingHandler(c *Client, msg string) bool {
 		reply = reply + words[2]
 	}
 
-	SendCommand(c.conn, reply)
+	SendCommand(c.Server.Conn, reply)
 
 	return true
 }
