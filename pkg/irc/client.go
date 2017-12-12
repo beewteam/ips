@@ -51,3 +51,26 @@ func (c *Client) Close() bool {
 func (c *Client) Auth(passwd string) bool {
 	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
 }
+
+func (c *Client) Run() bool {
+	//if !client.Server.Connect() {
+	//	os.Exit(1)
+	//}
+
+	//if !client.Login(settings.UserData.Nickname) {
+	//	os.Exit(1)
+	//}
+
+	//client.Auth(string(settings.UserData.Password))
+
+	// Should wait NOTIFY message
+	//time.Sleep(10 * time.Second)
+
+	//client.JoinChannel(settings.UserData.Chat)
+
+	//for client.HandleData() {
+	//}
+
+	//client.Close()
+	return true
+}
