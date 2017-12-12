@@ -15,11 +15,6 @@ type Client struct {
 	Server   Server
 }
 
-func (c *Client) SetNames(username string, fullName string) {
-	c.Username = username
-	c.FullName = fullName
-}
-
 func (c *Client) Login(nick string) bool {
 	return Reg(c.Server.Conn, nick, c.Username, c.FullName)
 }

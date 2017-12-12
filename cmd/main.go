@@ -52,12 +52,14 @@ func main() {
 	var server = irc.Server{
 		Hostname: "irc.freenode.net",
 		Port:     "8000"}
-	client := irc.Client{}
-	client.SetNames("opq", "eqq")
+	var client = irc.Client{
+		Username: "In work",
+		FullName: "In work",
+		Server:   server,
+	}
 	if !server.Connect() {
 		os.Exit(1)
 	}
-	client.Server = server
 
 	if !client.Login(settings.Nickname) {
 		os.Exit(1)
