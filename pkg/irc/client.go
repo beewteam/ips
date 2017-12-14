@@ -137,7 +137,7 @@ func connect(c *Client, params []string) (output []string) {
 	return
 }
 
-// Syntax: connect server-name port-number
+// Syntax: help
 func help(c *Client, params []string) (output []string) {
 	output = append(output, "Help menu")
 	for _, cmd := range clientCommands {
@@ -152,19 +152,6 @@ func ListAvaiableServers(c *Client, msg string) {
 
 func (c *Client) Run() bool {
 	var wg sync.WaitGroup
-
-	//if !client.Login(settings.UserData.Nickname) {
-	//	os.Exit(1)
-	//}
-
-	//client.Auth(string(settings.UserData.Password))
-
-	//client.JoinChannel(settings.UserData.Chat)
-
-	//for client.HandleData() {
-	//}
-
-	//client.Close()
 
 	r := bufio.NewReader(os.Stdin)
 	w := bufio.NewWriter(os.Stdout)
