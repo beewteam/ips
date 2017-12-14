@@ -83,7 +83,7 @@ func findHandler(commandName string) *command {
 
 func (c *Client) handleCommand(cmdLine string) (out []string) {
 	word := strings.Fields(cmdLine)
-	cmd := findHandler(word[0])
+	cmd := findHandler(strings.ToLower(word[0]))
 	return cmd.handler(c, word[1:])
 }
 
@@ -176,8 +176,8 @@ func (c *Client) Run() bool {
 
 func (c *Client) Init() bool {
 	clientCommands = []command{
-		{"HELP", "H", "print help menu", help},
-		{"CONNECT", "C", "connect client to server", connect},
+		{"help", "h", "print help menu", help},
+		{"connect", "c", "connect client to server", connect},
 	}
 	c.isActive = true
 	return true
