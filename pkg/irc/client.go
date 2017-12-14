@@ -17,17 +17,18 @@ type Account struct {
 }
 
 type Client struct {
-	Account Account
-	Channel string
-	Data    string
-	Server  Server
+	Account  Account
+	Channel  string
+	Data     string
+	Server   Server
+	isActive bool
 }
 
 type command struct {
 	name     string
 	shortcut string
 	desc     string
-	handler  func(c *Client, params []string) (bool, []string)
+	handler  func(c *Client, params []string) []string
 }
 
 var (
@@ -80,24 +81,10 @@ func findHandler(commandName string) *command {
 	return &clientCommands[1]
 }
 
-func (c *Client) handleCommand(reader *bufio.Reader, writer *bufio.Writer) (bool, bool) {
-	var s bool
-	var out []string
-
-	cmdLine, err := reader.ReadString('\n')
-	if err == nil {
-		word := strings.Fields(cmdLine)
-		s, out = findHandler(word[0]).handler(c, word[1:])
-		_, err = writer.WriteString(strings.Join(out, "\n") + "\n")
-		if err != nil {
-
-		}
-		writer.Flush()
-	} else {
-
-	}
-
-	return false, s
+func (c *Client) handleCommand(cmdLine string) (out []string) {
+	word := strings.Fields(cmdLine)
+	cmd := findHandler(word[0])
+	return cmd.handler(c, word[1:])
 }
 
 func (c *Client) AddListener(wg *sync.WaitGroup, reader *bufio.Reader, writer *bufio.Writer) {
@@ -105,15 +92,23 @@ func (c *Client) AddListener(wg *sync.WaitGroup, reader *bufio.Reader, writer *b
 
 	go func() {
 		defer wg.Done()
-		isActive := true
-		for isActive {
-			err, stop := c.handleCommand(reader, writer)
-			if err {
+		for c.isActive {
+			var out []string
 
+			cmdLine, err := reader.ReadString('\n')
+			if err != nil {
+				// Handle this by logging to file
+				continue
 			}
-			if stop {
-				isActive = false
+
+			out = c.handleCommand(cmdLine)
+
+			_, err = writer.WriteString(strings.Join(out, "\n") + "\n")
+			if err != nil {
+				// Handle this by logging to file
+				continue
 			}
+			writer.Flush()
 		}
 	}()
 }
@@ -123,10 +118,9 @@ func AddUserCommandListener(wg sync.WaitGroup, reader io.Reader) {
 }
 
 // Syntax: connect server-name port-number
-func connect(c *Client, params []string) (successful bool, output []string) {
+func connect(c *Client, params []string) (output []string) {
 	if len(params) != 2 {
 		output = append(output, "Error: Wrong numbers of arguments")
-		successful = false
 		return
 	}
 
@@ -136,22 +130,19 @@ func connect(c *Client, params []string) (successful bool, output []string) {
 	}
 	if c.Server.Connect() {
 		output = append(output, "Connected to "+c.Server.String())
-		successful = true
 	} else {
 		output = append(output, "Error: Cannot connect to "+c.Server.String())
-		successful = false
 	}
 
 	return
 }
 
 // Syntax: connect server-name port-number
-func help(c *Client, params []string) (successful bool, output []string) {
+func help(c *Client, params []string) (output []string) {
 	output = append(output, "Help menu")
 	for _, cmd := range clientCommands {
 		output = append(output, cmd.name+"["+cmd.shortcut+"]"+": "+cmd.desc)
 	}
-	successful = true
 	return
 }
 
@@ -188,5 +179,6 @@ func (c *Client) Init() bool {
 		{"HELP", "H", "print help menu", help},
 		{"CONNECT", "C", "connect client to server", connect},
 	}
+	c.isActive = true
 	return true
 }
