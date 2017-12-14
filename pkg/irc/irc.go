@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-type Command struct {
+type ircCommand struct {
 	name     string
 	shortcut string
 	handler  func(c *Client, msg string) bool
 }
 
 var (
-	commands []Command
+	ircCommands []ircCommand
 )
 
-func isCommand(name string, cmd *Command) bool {
+func isCommand(name string, cmd *ircCommand) bool {
 	return cmd.name == name || cmd.shortcut == name
 }
 
@@ -45,7 +45,7 @@ func PingHandler(c *Client, msg string) bool {
 
 func Handle(c *Client, msg string) {
 	words := strings.Fields(msg)
-	for _, cmd := range commands {
+	for _, cmd := range ircCommands {
 		if isCommand(words[0], &cmd) {
 			cmd.handler(c, msg)
 		}
@@ -53,7 +53,7 @@ func Handle(c *Client, msg string) {
 }
 
 func Init() {
-	commands = []Command{
+	ircCommands = []ircCommand{
 		{"PING", "PG", PingHandler},
 	}
 }

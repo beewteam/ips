@@ -87,7 +87,7 @@ func (c *Client) handleCommand(cmdLine string) (out []string) {
 	return cmd.handler(c, word[1:])
 }
 
-func (c *Client) AddListener(wg *sync.WaitGroup, reader *bufio.Reader, writer *bufio.Writer) {
+func (c *Client) addListener(wg *sync.WaitGroup, reader *bufio.Reader, writer *bufio.Writer) {
 	wg.Add(1)
 
 	go func() {
@@ -155,7 +155,7 @@ func (c *Client) Run() bool {
 
 	r := bufio.NewReader(os.Stdin)
 	w := bufio.NewWriter(os.Stdout)
-	c.AddListener(&wg, r, w)
+	c.addListener(&wg, r, w)
 
 	wg.Wait()
 	return true
