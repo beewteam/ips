@@ -25,5 +25,6 @@ func main() {
 			Port:     settings.ServerData.Port},
 	}
 
+	client.Init()
 	client.Run()
 }

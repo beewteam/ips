@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,14 +23,14 @@ type Client struct {
 	Server  Server
 }
 
-type Command struct {
+type command struct {
 	name     string
 	shortcut string
-	handler  func(c *Client, msg []string, output chan string) bool
+	handler  func(c *Client, params []string) (bool, []string)
 }
 
 var (
-	clientCommands []Command
+	clientCommands []command
 )
 
 func (c *Client) Login(nick string) bool {
@@ -68,8 +70,52 @@ func (c *Client) Auth(passwd string) bool {
 	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
 }
 
-func AddListener(wg sync.WaitGroup, reader io.Reader) {
+func findHandler(commandName string) *command {
+	for i := range clientCommands {
+		if clientCommands[i].name == commandName || clientCommands[i].shortcut == commandName {
+			return &clientCommands[i]
+		}
+	}
+	return &clientCommands[1]
+}
 
+func (c *Client) handleCommand(reader *bufio.Reader, writer *bufio.Writer) (bool, bool) {
+	var s bool
+	var out []string
+
+	cmdLine, err := reader.ReadString('\n')
+	if err == nil {
+		word := strings.Fields(cmdLine)
+		s, out = findHandler(word[0]).handler(c, word[1:])
+		for i := range out {
+			fmt.Println(out[i])
+			//_, err = writer.WriteString(out[i] + "\n")
+			//if err != nil {
+			//}
+		}
+	} else {
+
+	}
+
+	return false, s
+}
+
+func (c *Client) AddListener(wg *sync.WaitGroup, reader *bufio.Reader, writer *bufio.Writer) {
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		isActive := true
+		for isActive {
+			err, stop := c.handleCommand(reader, writer)
+			if err {
+
+			}
+			if stop {
+				isActive = false
+			}
+		}
+	}()
 }
 
 func AddUserCommandListener(wg sync.WaitGroup, reader io.Reader) {
@@ -77,24 +123,33 @@ func AddUserCommandListener(wg sync.WaitGroup, reader io.Reader) {
 }
 
 // Syntax: connect server-name port-number
-func Connect(c *Client, msg []string, output chan string) bool {
-	if len(msg) != 2 {
-		output <- "Error: Wrong numbers of arguments"
-		return false
+func connect(c *Client, params []string) (successful bool, output []string) {
+	if len(params) != 2 {
+		output = append(output, "Error: Wrong numbers of arguments")
+		successful = false
+		return
 	}
 
 	c.Server = Server{
-		Hostname: msg[0],
-		Port:     msg[1],
+		Hostname: params[0],
+		Port:     params[1],
 	}
-	if !c.Server.Connect() {
-		output <- "Error: Cannot connect to " + c.Server.String()
-		return false
+	if c.Server.Connect() {
+		output = append(output, "Connected to "+c.Server.String())
+		successful = true
+	} else {
+		output = append(output, "Error: Cannot connect to "+c.Server.String())
+		successful = false
 	}
 
-	output <- "Connected to " + c.Server.String()
+	return
+}
 
-	return true
+// Syntax: connect server-name port-number
+func help(c *Client, params []string) (successful bool, output []string) {
+	output = append(output, "help")
+	successful = true
+	return
 }
 
 func ListAvaiableServers(c *Client, msg string) {
@@ -110,9 +165,6 @@ func (c *Client) Run() bool {
 
 	//client.Auth(string(settings.UserData.Password))
 
-	// Should wait NOTIFY message
-	//time.Sleep(10 * time.Second)
-
 	//client.JoinChannel(settings.UserData.Chat)
 
 	//for client.HandleData() {
@@ -120,14 +172,18 @@ func (c *Client) Run() bool {
 
 	//client.Close()
 
-	//AddListener(wg, )
+	r := bufio.NewReader(os.Stdin)
+	w := bufio.NewWriter(os.Stdout)
+	c.AddListener(&wg, r, w)
 
+	wg.Wait()
 	return true
 }
 
 func (c *Client) Init() bool {
-	clientCommands = []Command{
-		{"CONNECT", "C", Connect},
+	clientCommands = []command{
+		{"HELP", "H", help},
+		{"CONNECT", "C", connect},
 	}
 	return true
 }
