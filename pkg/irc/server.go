@@ -25,3 +25,7 @@ func (s *Server) Connect() bool {
 
 	return true
 }
+
+func (s *Server) String() string {
+	return "hostname: " + s.Hostname + " port: " + s.Port
+}
