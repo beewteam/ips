@@ -26,6 +26,7 @@ type Client struct {
 type command struct {
 	name     string
 	shortcut string
+	desc     string
 	handler  func(c *Client, params []string) (bool, []string)
 }
 
@@ -87,12 +88,11 @@ func (c *Client) handleCommand(reader *bufio.Reader, writer *bufio.Writer) (bool
 	if err == nil {
 		word := strings.Fields(cmdLine)
 		s, out = findHandler(word[0]).handler(c, word[1:])
-		for i := range out {
-			fmt.Println(out[i])
-			//_, err = writer.WriteString(out[i] + "\n")
-			//if err != nil {
-			//}
+		_, err = writer.WriteString(strings.Join(out, "\n") + "\n")
+		if err != nil {
+
 		}
+		writer.Flush()
 	} else {
 
 	}
@@ -147,7 +147,10 @@ func connect(c *Client, params []string) (successful bool, output []string) {
 
 // Syntax: connect server-name port-number
 func help(c *Client, params []string) (successful bool, output []string) {
-	output = append(output, "help")
+	output = append(output, "Help menu")
+	for _, cmd := range clientCommands {
+		output = append(output, cmd.name+"["+cmd.shortcut+"]"+": "+cmd.desc)
+	}
 	successful = true
 	return
 }
@@ -182,8 +185,8 @@ func (c *Client) Run() bool {
 
 func (c *Client) Init() bool {
 	clientCommands = []command{
-		{"HELP", "H", help},
-		{"CONNECT", "C", connect},
+		{"HELP", "H", "print help menu", help},
+		{"CONNECT", "C", "connect client to server", connect},
 	}
 	return true
 }
