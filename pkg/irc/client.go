@@ -3,6 +3,8 @@ package irc
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"sync"
 	"time"
 )
 
@@ -18,6 +20,16 @@ type Client struct {
 	Data    string
 	Server  Server
 }
+
+type Command struct {
+	name     string
+	shortcut string
+	handler  func(c *Client, msg []string, output chan string) bool
+}
+
+var (
+	clientCommands []Command
+)
 
 func (c *Client) Login(nick string) bool {
 	return Reg(c.Server.Conn, nick, c.Account.Username, c.Account.FullName)
@@ -56,10 +68,41 @@ func (c *Client) Auth(passwd string) bool {
 	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
 }
 
+func AddListener(wg sync.WaitGroup, reader io.Reader) {
+
+}
+
+func AddUserCommandListener(wg sync.WaitGroup, reader io.Reader) {
+
+}
+
+// Syntax: connect server-name port-number
+func Connect(c *Client, msg []string, output chan string) bool {
+	if len(msg) != 2 {
+		output <- "Error: Wrong numbers of arguments"
+		return false
+	}
+
+	c.Server = Server{
+		Hostname: msg[0],
+		Port:     msg[1],
+	}
+	if !c.Server.Connect() {
+		output <- "Error: Cannot connect to " + c.Server.String()
+		return false
+	}
+
+	output <- "Connected to " + c.Server.String()
+
+	return true
+}
+
+func ListAvaiableServers(c *Client, msg string) {
+
+}
+
 func (c *Client) Run() bool {
-	//if !client.Server.Connect() {
-	//	os.Exit(1)
-	//}
+	var wg sync.WaitGroup
 
 	//if !client.Login(settings.UserData.Nickname) {
 	//	os.Exit(1)
@@ -76,5 +119,15 @@ func (c *Client) Run() bool {
 	//}
 
 	//client.Close()
+
+	//AddListener(wg, )
+
+	return true
+}
+
+func (c *Client) Init() bool {
+	clientCommands = []Command{
+		{"CONNECT", "C", Connect},
+	}
 	return true
 }
