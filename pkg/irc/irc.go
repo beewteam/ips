@@ -2,29 +2,41 @@ package irc
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strings"
 )
 
-type ircCommand struct {
-	format string
-}
+type (
+	Communicator struct {
+		socket        net.Conn
+		processingMsg message
+		readerIn      chan []byte
+		writerOut     chan []byte
+		errors        chan error
+		control       chan byte
+	}
 
-type message struct {
-}
+	ResponseCallback func(response string, err string)
+)
 
-type Communicator struct {
-	socket        net.Conn
-	processingMsg message
-	messagesQueue chan string
-	errors        chan string
-}
+type (
+	ircCommand struct {
+		format string
+	}
+
+	message struct {
+		data string
+		f    ResponseCallback
+	}
+)
 
 const (
-	t_cmd_name  = "@@CmdName@@"
-	proto_delim = "\r\n"
+	tCmdName       = "@@CmdName@@"
+	protoDelim     = "\r\n"
+	protoMaxLength = 512
 
-	warning_error = "1"
+	warningError = "1"
 )
 
 var (
@@ -33,45 +45,85 @@ var (
 
 func (c *Communicator) Init() {
 	ircCommands = map[string]ircCommand{
-		"PING":    {t_cmd_name + " %s"},
-		"PART":    {t_cmd_name + " %s"},
-		"NICK":    {t_cmd_name + " %s"},
-		"QUIT":    {t_cmd_name + " :%s"},
-		"TOPIC":   {t_cmd_name + " %s :%s"},
-		"PRIVMSG": {t_cmd_name + " %s :%s"},
+		"PING":    {tCmdName + " %s"},
+		"PART":    {tCmdName + " %s"},
+		"NICK":    {tCmdName + " %s"},
+		"QUIT":    {tCmdName + " :%s"},
+		"TOPIC":   {tCmdName + " %s :%s"},
+		"PRIVMSG": {tCmdName + " %s :%s"},
 	}
-	c.messagesQueue = make(chan string)
-	c.errors = make(chan string)
+
+	c.readerIn = make(chan []byte)
+	c.writerOut = make(chan []byte)
+	c.errors = make(chan error)
+	c.control = make(chan byte)
+}
+
+func (c *Communicator) SendMessage(cmdName string, f ResponseCallback, params ...interface{}) {
+	//go func() {
+	//c.messagesQueue <- message{
+	//	wrapMessage(ircCommands[cmdName].format, cmdName, params...),
+	//	f,
+	//}
+	//}()
+}
+
+func (c *Communicator) Close() {
+	c.socket.Close()
 }
 
 func wrapMessage(format string, cmdName string, params ...interface{}) string {
-	parsedFormat := strings.Replace(format, t_cmd_name, cmdName, 1) + proto_delim
+	parsedFormat := strings.Replace(format, tCmdName, cmdName, 1) + protoDelim
 	return fmt.Sprintf(parsedFormat, params...)
 }
 
-func (c *Communicator) handleSendMessage() {
+func (c *Communicator) Run(hostname string, port string) (err error) {
+	c.socket, err = net.Dial("tcp", hostname+":"+port)
+	if err == nil {
+		go reader(c.socket, c.control, c.readerIn, c.errors)
+		go writer(c.socket, c.control, c.writerOut, c.errors)
+		go router(c.errors)
+	}
+
+	return err
+}
+
+func router(err <-chan error) {
 	for {
-		if c.socket == nil {
-			c.errors <- warning_error + " : message-out-handler : socket close"
-			continue
+		select {
+		case e := <-err:
+			fmt.Println(e)
+		default:
+			fmt.Println("idle")
 		}
-		cmd := <-c.messagesQueue
-		c.socket.Write([]byte(cmd))
 	}
 }
 
-func (c *Communicator) errorListener() {
+func reader(socket net.Conn, control <-chan byte, out chan<- []byte, err chan<- error) {
+	buf := make([]byte, protoMaxLength)
 	for {
-		msg := <-c.errors
-		fmt.Println(msg)
+		select {
+		case ctl := <-control:
+			fmt.Println("writer ctl: " + string(ctl))
+		default:
+			_, rerr := socket.Read(buf)
+			if rerr == nil && rerr != io.EOF {
+				out <- buf
+			}
+			err <- rerr
+		}
 	}
+
 }
 
-func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
-	c.messagesQueue <- wrapMessage(ircCommands[cmdName].format, cmdName, params...)
-}
-
-func (c *Communicator) Run() {
-	go c.handleSendMessage()
-	go c.errorListener()
+func writer(socket net.Conn, control <-chan byte, in <-chan []byte, err chan<- error) {
+	for {
+		select {
+		case ctl := <-control:
+			fmt.Println("reader ctl: " + string(ctl))
+		default:
+			_, werr := socket.Write(<-in)
+			err <- werr
+		}
+	}
 }

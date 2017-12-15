@@ -11,6 +11,10 @@ const (
 	configFile = "./UserConfigs.json"
 )
 
+func print(reply string, err string) {
+	fmt.Println(reply)
+}
+
 func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -32,7 +36,13 @@ func main() {
 	//client.Run()
 	var com irc.Communicator
 	com.Init()
-	com.Run()
-	com.SendMessage("PING", "irc.freenode.com")
+	defer com.Close()
+
+	err := com.Run("irc.freenode.com", "8000")
+	if err != nil {
+		fmt.Printf("Cannot run communicator")
+		return
+	}
+
 	wg.Wait()
 }
