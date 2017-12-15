@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"sync"
+	"os"
 
 	"../pkg/irc"
 )
@@ -16,8 +17,6 @@ func print(reply string, err string) {
 }
 
 func main() {
-	var wg sync.WaitGroup
-	wg.Add(1)
 	fmt.Printf("Program version: %s\n", VERSION)
 
 	//var settings = ParseConfig(configFile)
@@ -44,5 +43,10 @@ func main() {
 		return
 	}
 
-	wg.Wait()
+	for {
+		text, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if text[0] == 'q' {
+			return
+		}
+	}
 }

@@ -2,8 +2,8 @@ package irc
 
 import (
 	"fmt"
-	"io"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -14,7 +14,7 @@ type (
 		readerIn      chan []byte
 		writerOut     chan []byte
 		errors        chan error
-		control       chan byte
+		control       chan int
 	}
 
 	ResponseCallback func(response string, err string)
@@ -37,6 +37,8 @@ const (
 	protoMaxLength = 512
 
 	warningError = "1"
+
+	exitCtrl = 1
 )
 
 var (
@@ -56,7 +58,7 @@ func (c *Communicator) Init() {
 	c.readerIn = make(chan []byte)
 	c.writerOut = make(chan []byte)
 	c.errors = make(chan error)
-	c.control = make(chan byte)
+	c.control = make(chan int)
 }
 
 func (c *Communicator) SendMessage(cmdName string, f ResponseCallback, params ...interface{}) {
@@ -69,6 +71,10 @@ func (c *Communicator) SendMessage(cmdName string, f ResponseCallback, params ..
 }
 
 func (c *Communicator) Close() {
+	c.control <- exitCtrl
+	c.control <- exitCtrl
+	c.control <- exitCtrl
+
 	c.socket.Close()
 }
 
@@ -82,48 +88,82 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	if err == nil {
 		go reader(c.socket, c.control, c.readerIn, c.errors)
 		go writer(c.socket, c.control, c.writerOut, c.errors)
-		go router(c.errors)
+		go router(c.control, c.errors)
 	}
 
 	return err
 }
 
-func router(err <-chan error) {
+func router(control <-chan int, err <-chan error) {
 	for {
 		select {
+		case ctl := <-control:
+			if ctl == 1 {
+				fmt.Println("router ctl: " + strconv.FormatInt(int64(ctl), 10))
+				return
+			}
 		case e := <-err:
 			fmt.Println(e)
 		default:
-			fmt.Println("idle")
+			//fmt.Println("idle")
 		}
 	}
 }
 
-func reader(socket net.Conn, control <-chan byte, out chan<- []byte, err chan<- error) {
+func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
 	buf := make([]byte, protoMaxLength)
+	var rerr error
+
 	for {
 		select {
 		case ctl := <-control:
-			fmt.Println("writer ctl: " + string(ctl))
-		default:
-			_, rerr := socket.Read(buf)
-			if rerr == nil && rerr != io.EOF {
-				out <- buf
+			fmt.Println("writer ctl: " + strconv.FormatInt(int64(ctl), 10))
+			if ctl == exitCtrl {
+				return
 			}
-			err <- rerr
+		default:
+		}
+
+		if len(buf) == 0 {
+			_, rerr = socket.Read(buf)
+		} else {
+			select {
+			case err <- rerr:
+				rerr = nil
+			case out <- buf:
+				buf = buf[:0]
+			default:
+			}
 		}
 	}
 
 }
 
-func writer(socket net.Conn, control <-chan byte, in <-chan []byte, err chan<- error) {
+func writer(socket net.Conn, control <-chan int, in <-chan []byte, err chan<- error) {
+	var werr error
+
 	for {
 		select {
 		case ctl := <-control:
-			fmt.Println("reader ctl: " + string(ctl))
+			fmt.Println("reader ctl: " + strconv.FormatInt(int64(ctl), 10))
+			if ctl == exitCtrl {
+				return
+			}
 		default:
-			_, werr := socket.Write(<-in)
-			err <- werr
+		}
+
+		if werr == nil {
+			select {
+			case data := <-in:
+				_, werr = socket.Write(data)
+			default:
+			}
+		} else {
+			select {
+			case err <- werr:
+				werr = nil
+			default:
+			}
 		}
 	}
 }
