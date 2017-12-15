@@ -2,12 +2,10 @@ package irc
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
 type Account struct {
@@ -35,42 +33,42 @@ var (
 	clientCommands []command
 )
 
-func (c *Client) Login(nick string) bool {
-	return Reg(c.Server.Conn, nick, c.Account.Username, c.Account.FullName)
-}
+// func (c *Client) Login(nick string) bool {
+// 	return Reg(c.Server.Conn, nick, c.Account.Username, c.Account.FullName)
+// }
 
-func (c *Client) JoinChannel(channel string) bool {
-	c.Channel = channel
-	return Join(c.Server.Conn, channel)
-}
+// func (c *Client) JoinChannel(channel string) bool {
+// 	c.Channel = channel
+// 	return Join(c.Server.Conn, channel)
+// }
 
-func (c *Client) LeaveChannel() bool {
-	return Part(c.Server.Conn, c.Channel)
-}
+// func (c *Client) LeaveChannel() bool {
+// 	return Part(c.Server.Conn, c.Channel)
+// }
 
-func (c *Client) HandleData() bool {
-	message, _ := bufio.NewReader(c.Server.Conn).ReadString('\r')
-	if len(message) > 0 {
-		fmt.Printf("Message:%s\n", message)
-	}
-	return true
-}
+// func (c *Client) HandleData() bool {
+// 	message, _ := bufio.NewReader(c.Server.Conn).ReadString('\r')
+// 	if len(message) > 0 {
+// 		fmt.Printf("Message:%s\n", message)
+// 	}
+// 	return true
+// }
 
-func (c *Client) LogMessage(nick string, msg string) bool {
-	fmt.Printf(
-		"%s - [%s] <%s> %s\n",
-		time.Now().String(), c.Channel, c.Account.Nick, msg)
-	return true
-}
+// func (c *Client) LogMessage(nick string, msg string) bool {
+// 	fmt.Printf(
+// 		"%s - [%s] <%s> %s\n",
+// 		time.Now().String(), c.Channel, c.Account.Nick, msg)
+// 	return true
+// }
 
-func (c *Client) Close() bool {
-	c.Server.Conn.Close()
-	return true
-}
+// func (c *Client) Close() bool {
+// 	c.Server.Conn.Close()
+// 	return true
+// }
 
-func (c *Client) Auth(passwd string) bool {
-	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
-}
+// func (c *Client) Auth(passwd string) bool {
+// 	return Msg(c.Server.Conn, "NickServ", "IDENTIFY "+passwd)
+// }
 
 func findHandler(commandName string) *command {
 	for i := range clientCommands {
@@ -169,3 +167,11 @@ func (c *Client) Init() bool {
 	c.isActive = true
 	return true
 }
+
+/*func Reg(c net.Conn, nick string, username string, fullname string) bool {
+	fmt.Fprintf(
+		c,
+		"USER %s 0 0 :%s\r\n",
+		nick, username, fullname)
+	return true
+}*/
