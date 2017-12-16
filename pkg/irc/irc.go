@@ -11,6 +11,7 @@ type (
 	Communicator struct {
 		socket        net.Conn
 		processingMsg message
+		msgs          chan message
 		readerIn      chan []byte
 		writerOut     chan []byte
 		errors        chan error
@@ -59,15 +60,14 @@ func (c *Communicator) Init() {
 	c.writerOut = make(chan []byte)
 	c.errors = make(chan error)
 	c.control = make(chan int)
+	c.msgs = make(chan message)
 }
 
-func (c *Communicator) SendMessage(cmdName string, f ResponseCallback, params ...interface{}) {
-	//go func() {
-	//c.messagesQueue <- message{
-	//	wrapMessage(ircCommands[cmdName].format, cmdName, params...),
-	//	f,
-	//}
-	//}()
+func (c *Communicator) SendMessage(cmdName string, callback ResponseCallback, params ...interface{}) {
+	c.msgs <- message{
+		wrapMessage(ircCommands[cmdName].format, cmdName, params...),
+		callback,
+	}
 }
 
 func (c *Communicator) Close() {
@@ -88,13 +88,13 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	if err == nil {
 		go reader(c.socket, c.control, c.readerIn, c.errors)
 		go writer(c.socket, c.control, c.writerOut, c.errors)
-		go router(c.control, c.errors)
+		go router(c.control, c.msgs, c.errors)
 	}
 
 	return err
 }
 
-func router(control <-chan int, err <-chan error) {
+func router(control <-chan int, messages <-chan message, err <-chan error) {
 	for {
 		select {
 		case ctl := <-control:
@@ -104,6 +104,8 @@ func router(control <-chan int, err <-chan error) {
 			}
 		case e := <-err:
 			fmt.Println(e)
+		case msg := <-messages:
+			msg.f("Get", "")
 		default:
 			//fmt.Println("idle")
 		}

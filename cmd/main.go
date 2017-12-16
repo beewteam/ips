@@ -47,6 +47,8 @@ func main() {
 		text, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 		if text[0] == 'q' {
 			return
+		} else if text[0] == 'p' {
+			com.SendMessage("PING", print, "irc.freenode.com")
 		}
 	}
 }
