@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"../pkg/irc"
+	"github.com/beewteam/ips/pkg/irc"
 )
 
 const (
