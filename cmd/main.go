@@ -39,7 +39,7 @@ func main() {
 
 	err := com.Run("irc.freenode.com", "8000")
 	if err != nil {
-		fmt.Printf("Cannot run communicator")
+		fmt.Printf("Cannot run communicator\n")
 		return
 	}
 

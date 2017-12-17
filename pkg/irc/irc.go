@@ -64,10 +64,12 @@ func (c *Communicator) Init() {
 }
 
 func (c *Communicator) SendMessage(cmdName string, callback ResponseCallback, params ...interface{}) {
-	c.msgs <- message{
-		wrapMessage(ircCommands[cmdName].format, cmdName, params...),
-		callback,
-	}
+	go func() {
+		c.msgs <- message{
+			wrapMessage(ircCommands[cmdName].format, cmdName, params...),
+			callback,
+		}
+	}()
 }
 
 func (c *Communicator) Close() {
@@ -88,13 +90,17 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	if err == nil {
 		go reader(c.socket, c.control, c.readerIn, c.errors)
 		go writer(c.socket, c.control, c.writerOut, c.errors)
-		go router(c.control, c.msgs, c.errors)
+		go router(c.control, c.msgs, c.writerOut, c.readerIn, c.errors)
 	}
 
 	return err
 }
 
-func router(control <-chan int, messages <-chan message, err <-chan error) {
+func router(control <-chan int, messages <-chan message, writer chan<- []byte, reader <-chan []byte, err <-chan error) {
+	var status int
+	var msg message
+	var buf = make([]byte, protoMaxLength)
+
 	for {
 		select {
 		case ctl := <-control:
@@ -104,9 +110,27 @@ func router(control <-chan int, messages <-chan message, err <-chan error) {
 			}
 		case e := <-err:
 			fmt.Println(e)
-		case msg := <-messages:
-			msg.f("Get", "")
+			return
 		default:
+			if status == 0 {
+				select {
+				case msg = <-messages:
+					status = 1
+				default:
+				}
+			} else if status == 1 {
+				select {
+				case writer <- []byte(msg.data):
+					status = 0
+				default:
+				}
+			}
+
+			select {
+			case buf = <-reader:
+				fmt.Println(string(buf))
+			default:
+			}
 			//fmt.Println("idle")
 		}
 	}
@@ -114,6 +138,7 @@ func router(control <-chan int, messages <-chan message, err <-chan error) {
 
 func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
 	buf := make([]byte, protoMaxLength)
+	var state int
 	var rerr error
 
 	for {
@@ -126,14 +151,18 @@ func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- e
 		default:
 		}
 
-		if len(buf) == 0 {
+		if state == 0 {
 			_, rerr = socket.Read(buf)
-		} else {
+			state = 1
+			// For debug
+			fmt.Println(string(buf))
+		} else if state == 1 {
 			select {
 			case err <- rerr:
 				rerr = nil
+				return
 			case out <- buf:
-				buf = buf[:0]
+				state = 1
 			default:
 			}
 		}
