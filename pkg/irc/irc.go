@@ -9,13 +9,17 @@ import (
 
 type (
 	Communicator struct {
-		socket        net.Conn
-		processingMsg message
-		msgs          chan message
-		readerIn      chan []byte
-		writerOut     chan []byte
-		errors        chan error
-		control       chan int
+		socket    net.Conn
+		pMsg      message
+		mQueue    []message
+		msgs      chan message
+		readerIn  chan []byte
+		writerOut chan []byte
+		errors    chan error
+		control   chan int
+
+		OnMsg   func(response string)
+		OnError func(err string)
 	}
 
 	ResponseCallback func(response string, err string)
@@ -29,6 +33,7 @@ type (
 	message struct {
 		data string
 		f    ResponseCallback
+		done bool
 	}
 )
 
@@ -61,6 +66,10 @@ func (c *Communicator) Init() {
 	c.errors = make(chan error)
 	c.control = make(chan int)
 	c.msgs = make(chan message)
+
+	c.mQueue = make([]message, 0)
+
+	c.pMsg.done = true
 }
 
 func (c *Communicator) SendMessage(cmdName string, callback ResponseCallback, params ...interface{}) {
@@ -68,6 +77,7 @@ func (c *Communicator) SendMessage(cmdName string, callback ResponseCallback, pa
 		c.msgs <- message{
 			wrapMessage(ircCommands[cmdName].format, cmdName, params...),
 			callback,
+			false,
 		}
 	}()
 }
@@ -90,84 +100,68 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	if err == nil {
 		go reader(c.socket, c.control, c.readerIn, c.errors)
 		go writer(c.socket, c.control, c.writerOut, c.errors)
-		go router(c.control, c.msgs, c.writerOut, c.readerIn, c.errors)
+		go router(c, c.control, c.msgs, c.writerOut, c.readerIn, c.errors)
 	}
 
 	return err
 }
 
-func router(control <-chan int, messages <-chan message, writer chan<- []byte, reader <-chan []byte, err <-chan error) {
-	var status int
-	var msg message
+func (c *Communicator) send(writer chan<- []byte) {
+	if c.pMsg.done && len(c.mQueue) != 0 {
+		c.pMsg = c.mQueue[0]
+		c.mQueue = c.mQueue[1:]
+		go func() {
+			writer <- []byte(c.pMsg.data)
+		}()
+	}
+}
+
+func router(c *Communicator, control <-chan int, messages <-chan message, writer chan<- []byte, reader <-chan []byte, err <-chan error) {
 	var buf = make([]byte, protoMaxLength)
 
 	for {
 		select {
 		case ctl := <-control:
-			if ctl == 1 {
-				fmt.Println("router ctl: " + strconv.FormatInt(int64(ctl), 10))
+			fmt.Println("router ctl: " + strconv.FormatInt(int64(ctl), 10))
+			if ctl == exitCtrl {
 				return
 			}
-		case e := <-err:
-			fmt.Println(e)
-			return
-		default:
-			if status == 0 {
-				select {
-				case msg = <-messages:
-					status = 1
-				default:
-				}
-			} else if status == 1 {
-				select {
-				case writer <- []byte(msg.data):
-					status = 0
-				default:
-				}
-			}
+		case buf = <-reader:
+			reply := string(buf)
+			reply = strings.TrimSuffix(reply, "\n")
+			reply = strings.TrimSuffix(reply, "\r")
 
-			select {
-			case buf = <-reader:
-				fmt.Println(string(buf))
-			default:
+			c.OnMsg(reply)
+			c.pMsg.done = true
+			c.send(writer)
+		case e := <-err:
+			if e != nil {
+				fmt.Println(e)
 			}
-			//fmt.Println("idle")
+		case msg := <-messages:
+			c.mQueue = append(c.mQueue, msg)
+			c.send(writer)
 		}
 	}
 }
 
 func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
-	buf := make([]byte, protoMaxLength)
-	var state int
+	var buf []byte
 	var rerr error
 
 	for {
+		buf = make([]byte, protoMaxLength)
+		_, rerr = socket.Read(buf)
 		select {
 		case ctl := <-control:
 			fmt.Println("writer ctl: " + strconv.FormatInt(int64(ctl), 10))
 			if ctl == exitCtrl {
 				return
 			}
-		default:
-		}
-
-		if state == 0 {
-			_, rerr = socket.Read(buf)
-			state = 1
-			// For debug
-			fmt.Println(string(buf))
-		} else if state == 1 {
-			select {
-			case err <- rerr:
-				rerr = nil
-				return
-			case out <- buf:
-				state = 1
-			default:
-			}
+		case out <- buf:
+		case err <- rerr:
 		}
 	}
-
 }
 
 func writer(socket net.Conn, control <-chan int, in <-chan []byte, err chan<- error) {
@@ -180,21 +174,10 @@ func writer(socket net.Conn, control <-chan int, in <-chan []byte, err chan<- er
 			if ctl == exitCtrl {
 				return
 			}
-		default:
-		}
+		case err <- werr:
+		case data := <-in:
+			_, werr = socket.Write(data)
 
-		if werr == nil {
-			select {
-			case data := <-in:
-				_, werr = socket.Write(data)
-			default:
-			}
-		} else {
-			select {
-			case err <- werr:
-				werr = nil
-			default:
-			}
 		}
 	}
 }

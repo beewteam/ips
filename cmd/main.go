@@ -12,6 +12,10 @@ const (
 	configFile = "./UserConfigs.json"
 )
 
+func printM(reply string) {
+	fmt.Println(reply)
+}
+
 func print(reply string, err string) {
 	fmt.Println(reply)
 }
@@ -35,6 +39,7 @@ func main() {
 	//client.Run()
 	var com irc.Communicator
 	com.Init()
+	com.OnMsg = printM
 	defer com.Close()
 
 	err := com.Run("irc.freenode.com", "8000")
