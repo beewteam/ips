@@ -33,6 +33,17 @@ build_go() {
         cd "${PROJECT_DIR}"
 }
 
+test_go() {
+        local path="$1"
+        cd "$path"
+        go test
+        if [[ ! $? -eq 0 ]]; then
+                return 1
+        fi
+        cd "${PROJECT_DIR}"
+
+}
+
 build() {
         if [[ ! -d "build" ]]; then
                 mkdir build
@@ -52,3 +63,5 @@ build() {
 }
 
 build
+test_go "cmd/client"
+test_go "cmd/server"
