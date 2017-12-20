@@ -9,7 +9,7 @@ Don't spend your time on this repo, it's entirely done for university work and d
 If you want to run a project, you need to follow the instructions:
 
 # Program compilation
-* git get  github.com/beewteam/ips
+* go get github.com/beewteam/ips
 * ./build.sh
 
 # Requirements
