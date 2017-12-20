@@ -16,11 +16,20 @@ var (
 )
 VR
 )
-        echo "${programVersion}" > cmd/version.go 
+        echo "${programVersion}" | tee cmd/client/version.go cmd/server/version.go > /dev/null
 }
 
 resolve_deps() {
         go get "golang.org/x/crypto/ssh/terminal"
+}
+
+build_go() {
+        local path="$1"
+        local buildName="$2"
+
+        cd "$path"
+        go build -o "${PROJECT_DIR}/build/${buildName}"
+        cd "${PROJECT_DIR}"
 }
 
 build() {
@@ -33,12 +42,12 @@ build() {
         resolve_deps
         generate_version
 
-        cd "cmd"
-        go build -o ${PROJECT_DIR}/build/irc-client
+        build_go "cmd/client" "client"
+        build_go "cmd/server" "server"
+
         if [[ ! -e ${PROJECT_DIR}/misc/UserConfigs.json ]]; then
                 cp ${PROJECT_DIR}/misc/UserConfigs.json ${PROJECT_DIR}/build
         fi
-        cd ${PROJECT_DIR}
 }
 
 build

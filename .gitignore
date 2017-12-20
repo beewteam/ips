@@ -19,4 +19,4 @@ program-version
 build
 build/*
 
-cmd/version.go
+version.go
