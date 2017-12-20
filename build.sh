@@ -21,6 +21,7 @@ VR
 
 resolve_deps() {
         go get "golang.org/x/crypto/ssh/terminal"
+        go get "github.com/stretchr/testify/assert"
 }
 
 build_go() {

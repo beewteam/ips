@@ -1,2 +1,0 @@
-cd "pkg/irc"
-        go build -o ~/go/pkg/linux_amd64/github.com/beewteam/ips/pkg/irc.a 

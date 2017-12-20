@@ -34,11 +34,7 @@ const (
 	crlf              = "\r\n"
 )
 
-var clients = make(map[*Client]bool)
-var rooms = make(map[*Room]bool)
-var mutex = &sync.Mutex{}
-
-type handleCommand func([]string, *Command)
+type handleCommand func(*Server, []string, *Command)
 
 var commandMap = map[string]handleCommand{
 	"JOIN":    handleJoinCommand,
@@ -69,15 +65,13 @@ type Client struct {
 	hostname string
 }
 
-/*type Server struct {
-	clients         map[*Client]bool
-	channels        map[*Channel]bool
-	commandChan    chan *Command
-	connectionChan chan net.Conn
-	name            string
-}*/
+type Server struct {
+	clients map[*Client]bool
+	rooms   map[*Room]bool
+	mutex   sync.Mutex
+}
 
-func handleJoinCommand(parameters []string, command *Command) {
+func handleJoinCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) == 0 {
 		return
@@ -86,24 +80,24 @@ func handleJoinCommand(parameters []string, command *Command) {
 	if strings.ContainsAny(roomName, "#") {
 		roomName = roomName[1:]
 	}
-	room := getRoomFromName(roomName)
+	room := s.getRoomFromName(roomName)
 	if room == nil {
 		room = &Room{name: roomName, clients: make(map[*Client]bool)}
 	}
 	room.clients[command.client] = true
-	mutex.Lock()
-	rooms[room] = true
-	mutex.Unlock()
-	replyJoinCommand(command.client, room)
+	s.mutex.Lock()
+	s.rooms[room] = true
+	s.mutex.Unlock()
+	s.replyJoinCommand(command.client, room)
 }
 
-func handlePartCommand(parameters []string, command *Command) {
+func handlePartCommand(s *Server, parameters []string, command *Command) {
 	if len(parameters) == 0 {
 		return
 	}
 
 	roomName := parameters[0][1:]
-	room := getRoomFromName(roomName)
+	room := s.getRoomFromName(roomName)
 	if room != nil {
 		message := fmt.Sprintf(":%s!%s@%s PART #%s :%s", command.client.nickname,
 			command.client.username, command.client.hostname, roomName,
@@ -116,7 +110,7 @@ func handlePartCommand(parameters []string, command *Command) {
 	}
 }
 
-func handleUserCommand(parameters []string, command *Command) {
+func handleUserCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) != 4 {
 		command.client.conn.Write([]byte("Invalid syntax\n"))
@@ -133,7 +127,7 @@ func handleUserCommand(parameters []string, command *Command) {
 	//replyNickAndUserCommand(command.client)
 }
 
-func handleNickCommand(parameters []string, command *Command) {
+func handleNickCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) != 1 {
 		command.client.conn.Write([]byte("Invalid syntax\n"))
@@ -141,10 +135,10 @@ func handleNickCommand(parameters []string, command *Command) {
 	}
 
 	nickname := parameters[0]
-	clientTest := getClientFromName(nickname)
+	clientTest := s.getClientFromName(nickname)
 	if clientTest == nil {
 		command.client.nickname = nickname
-		replyNickAndUserCommand(command.client)
+		s.replyNickAndUserCommand(command.client)
 	} else {
 		message := fmt.Sprintf(":%s %s * %s :Nickname is already in use", serverName,
 			errNicknameInUse, nickname)
@@ -154,17 +148,17 @@ func handleNickCommand(parameters []string, command *Command) {
 
 }
 
-func handleWhoCommand(parameters []string, command *Command) {
+func handleWhoCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) != 1 {
 		return
 	}
 
 	roomName := parameters[0][1:]
-	replyWhoCommand(command.client, roomName)
+	s.replyWhoCommand(command.client, roomName)
 }
 
-func handlePrivateMessageCommand(parameters []string, command *Command) {
+func handlePrivateMessageCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) < 1 {
 		return
@@ -177,7 +171,7 @@ func handlePrivateMessageCommand(parameters []string, command *Command) {
 		// Message to room
 		roomName := parameters[0][1:]
 		finalMessage := ""
-		room := getRoomFromName(roomName)
+		room := s.getRoomFromName(roomName)
 		if room != nil {
 			_, present := room.clients[command.client]
 			if present {
@@ -197,7 +191,7 @@ func handlePrivateMessageCommand(parameters []string, command *Command) {
 	} else {
 		// Message to User
 		clientName := parameters[0]
-		client := getClientFromName(clientName)
+		client := s.getClientFromName(clientName)
 		if client != nil {
 			message = fmt.Sprintf(":%s!%s@%s PRIVMSG %s :%s", command.client.nickname,
 				command.client.username, command.client.hostname, clientName, message)
@@ -207,11 +201,11 @@ func handlePrivateMessageCommand(parameters []string, command *Command) {
 	}
 }
 
-func handleInvalidCommand(command *Command) {
+func handleInvalidCommand(s *Server, command *Command) {
 	command.client.conn.Write([]byte("Invalid commmand\n"))
 }
 
-func replyJoinCommand(client *Client, room *Room) {
+func (s *Server) replyJoinCommand(client *Client, room *Room) {
 
 	message := ""
 	//client.nickname = "manoj"
@@ -241,7 +235,7 @@ func replyJoinCommand(client *Client, room *Room) {
 
 }
 
-func replyNickAndUserCommand(client *Client) {
+func (s *Server) replyNickAndUserCommand(client *Client) {
 
 	nick := ""
 	if client.nickname == "" {
@@ -277,9 +271,9 @@ func replyNickAndUserCommand(client *Client) {
 	client.conn.Write([]byte(message + crlf))
 }
 
-func replyWhoCommand(client *Client, roomName string) {
+func (s *Server) replyWhoCommand(client *Client, roomName string) {
 	message := ""
-	room := getRoomFromName(roomName)
+	room := s.getRoomFromName(roomName)
 	isFirst := true
 	temp := ""
 	for clientInRoom := range room.clients {
@@ -302,8 +296,8 @@ func replyWhoCommand(client *Client, roomName string) {
 	client.conn.Write([]byte(message + crlf))
 }
 
-func getRoomFromName(name string) *Room {
-	for room := range rooms {
+func (s *Server) getRoomFromName(name string) *Room {
+	for room := range s.rooms {
 		if room.name == name {
 			return room
 		}
@@ -311,8 +305,8 @@ func getRoomFromName(name string) *Room {
 	return nil
 }
 
-func getClientFromName(name string) *Client {
-	for client := range clients {
+func (s *Server) getClientFromName(name string) *Client {
+	for client := range s.clients {
 		if client.nickname == name {
 			return client
 		}
@@ -320,7 +314,7 @@ func getClientFromName(name string) *Client {
 	return nil
 }
 
-func sendPingCommand(client *Client) {
+func (s *Server) sendPingCommand(client *Client) {
 	for {
 		time.Sleep(1000 * time.Millisecond)
 		fmt.Println("PING :" + serverName)
@@ -331,7 +325,7 @@ func sendPingCommand(client *Client) {
 	}
 }
 
-func handleClient(client *Client, commandChan chan *Command) {
+func handleClient(s *Server, client *Client, commandChan chan *Command) {
 
 	readerObj := bufio.NewReader(client.conn)
 	//go sendPingCommand(client)
@@ -342,9 +336,9 @@ func handleClient(client *Client, commandChan chan *Command) {
 		}
 		message = strings.TrimRight(message, crlf)
 		if strings.Compare(strings.Split(message, " ")[0], "QUIT") == 0 {
-			mutex.Lock()
-			delete(clients, client)
-			mutex.Unlock()
+			s.mutex.Lock()
+			delete(s.clients, client)
+			s.mutex.Unlock()
 			break
 		}
 		fmt.Println("Message:", string(message))
@@ -354,7 +348,7 @@ func handleClient(client *Client, commandChan chan *Command) {
 
 }
 
-func parseCommand(command *Command) {
+func (s *Server) parseCommand(command *Command) {
 
 	tokens := strings.Split(command.name, " ")
 
@@ -363,16 +357,20 @@ func parseCommand(command *Command) {
 		parameters := tokens[1:]
 		handleFunc, ok := commandMap[commandName]
 		if !ok {
-			handleInvalidCommand(command)
+			handleInvalidCommand(s, command)
 		} else {
-			handleFunc(parameters, command)
+			handleFunc(s, parameters, command)
 		}
 	} else {
-		handleInvalidCommand(command)
+		handleInvalidCommand(s, command)
 	}
 }
 
 func main() {
+	var s Server
+	s.clients = make(map[*Client]bool)
+	s.rooms = make(map[*Room]bool)
+	s.mutex = sync.Mutex{}
 
 	commandChan := make(chan *Command)
 	connectionChan := make(chan net.Conn)
@@ -398,13 +396,13 @@ func main() {
 	for {
 		select {
 		case command := <-commandChan:
-			go parseCommand(command)
+			go s.parseCommand(command)
 		case conn := <-connectionChan:
 			client := &Client{conn: conn, rooms: make(map[*Room]bool)}
-			mutex.Lock()
-			clients[client] = true
-			mutex.Unlock()
-			go handleClient(client, commandChan)
+			s.mutex.Lock()
+			s.clients[client] = true
+			s.mutex.Unlock()
+			go handleClient(&s, client, commandChan)
 		}
 	}
 }
