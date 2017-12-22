@@ -24,3 +24,21 @@ func TestGetRoomFromName(t *testing.T) {
 	mockServer.rooms[&testRoom2] = true
 	assert.Equal(&testRoom2, mockServer.getRoomFromName("cool room"), "Should be not nil")
 }
+
+func TestGetClientFromName(t *testing.T) {
+	assert := assert.New(t)
+	var testClient1 *Client
+	var mockServer = Server{
+		make(map[*Client]bool),
+		make(map[*Room]bool),
+		sync.Mutex{},
+	}
+	assert.Equal(testClient1, mockServer.getClientFromName("test"), "Should be nil")
+
+	var testClient2 = Client{
+		"Mad Client",
+		make(map[*Room]bool),
+	}
+	mockServer.clients[&testClient2] = true
+	assert.Equal(&testClient2, mockServer.getClientFromName("Mad Client"), "Should be not nil")
+}
