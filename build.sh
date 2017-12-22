@@ -3,65 +3,91 @@
 set -o pipefail
 set -o errexit
 
+EXTERNAL_DEPENDENCIES=(
+        "golang.org/x/crypto/ssh/terminal"
+        "github.com/stretchr/testify/assert"
+)
+
+COMPONENTS=(
+        "cmd/client"
+        "cmd/server"
+)
+
 PROJECT_DIR=$(pwd)
+PROJECT_BUILD_OUTPUT_DIR="build"
 
-generate_version() {
-        local gitVersion=$(git describe)
-
-        local programVersion=$(cat << VR | sed "s/@@PLACEHOLDER@@/${gitVersion}/g"
+VERSION_TEMPLATE=$(cat << VR
 package main
 
 var (
-        VERSION string = "@@PLACEHOLDER@@"
+        VERSION string = "@@VERSION_PLACEHOLDER@@"
 )
 VR
 )
+
+generate_version() {
+        local gitVersion=$(git describe)
+        local programVersion=$(echo $VERSION_TEMPLATE | sed "s/@@VERSION_PLACEHOLDER@@/${gitVersion}/g")
         echo "${programVersion}" | tee cmd/client/version.go cmd/server/version.go > /dev/null
 }
 
 resolve_deps() {
-        go get "golang.org/x/crypto/ssh/terminal"
-        go get "github.com/stretchr/testify/assert"
+        for component in ${EXTERNAL_DEPENDENCIES[@]}
+        do
+                go get $component
+        done
 }
 
-build_go() {
-        local path="$1"
-        local buildName="$2"
-
-        cd "$path"
-        go build -o "${PROJECT_DIR}/build/${buildName}"
-        cd "${PROJECT_DIR}"
+run_test() {
+        for component in ${COMPONENTS[@]}
+        do
+                cd "${component}"
+                go test || exit 1
+                cd ${PROJECT_DIR}
+        done
 }
 
-test_go() {
-        local path="$1"
-        cd "$path"
-        go test
-        if [[ ! $? -eq 0 ]]; then
-                return 1
-        fi
-        cd "${PROJECT_DIR}"
-
-}
-
-build() {
+run_build() {
         if [[ ! -d "build" ]]; then
                 mkdir build
-        else
-                rm -rf build/irc-client
         fi
 
         resolve_deps
         generate_version
 
-        build_go "cmd/client" "client"
-        build_go "cmd/server" "server"
+        for component in ${COMPONENTS[@]}
+        do
+                cd "$component"
+                go build -o "${PROJECT_DIR}/${PROJECT_BUILD_OUTPUT_DIR}/$(basename ${component})"
+                cd "${PROJECT_DIR}"
+        done
 
-        if [[ ! -e ${PROJECT_DIR}/misc/UserConfigs.json ]]; then
-                cp ${PROJECT_DIR}/misc/UserConfigs.json ${PROJECT_DIR}/build
-        fi
+        #if [[ ! -e ${PROJECT_DIR}/misc/UserConfigs.json ]]; then
+        #        cp ${PROJECT_DIR}/misc/UserConfigs.json ${PROJECT_DIR}/build
+        #fi
 }
 
-build
-test_go "cmd/client"
-test_go "cmd/server"
+run_clean() {
+        rm -rf "${PROJECT_BUILD_OUTPUT_DIR}"
+}
+
+main() {
+        case $1 in
+        "-c")
+                run_clean
+                ;;
+        "-t")
+                run_test
+                ;;
+        "-b")
+                run_build
+                ;;
+        *)
+                run_clean
+                run_build
+                run_test
+                ;;
+        esac
+}
+
+main $@
