@@ -39,9 +39,9 @@ func main() {
 	//client.Run()
 	var com irc.Communicator
 	com.Init()
-	com.OnMsg = printM
 	defer com.Close()
-
+	com.Subscribe("*", printM)
+	
 	err := com.Run("irc.freenode.com", "8000")
 	if err != nil {
 		fmt.Printf("Cannot run communicator\n")

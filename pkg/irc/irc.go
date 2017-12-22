@@ -5,9 +5,13 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"errors"
 )
 
 type (
+	EventCallback func(eventName string)
+	
+	ResponseCallback func(response string, err string)
 	Communicator struct {
 		socket    net.Conn
 		pMsg      message
@@ -17,22 +21,21 @@ type (
 		writerOut chan []byte
 		errors    chan error
 		control   chan int
-
+		eventDispatcher map[string]eventCallbackList
 		OnMsg   func(response string)
 		OnError func(err string)
 	}
-
-	ResponseCallback func(response string, err string)
 )
 
 type (
+	eventCallbackList []EventCallback
+
 	ircCommand struct {
 		format string
 	}
 
 	message struct {
 		data string
-		f    ResponseCallback
 		done bool
 	}
 )
@@ -50,6 +53,14 @@ const (
 var (
 	ircCommands map[string]ircCommand
 )
+
+func (c *Communicator) Subscribe(eventName string, callbackFunction EventCallback) (err error) {
+	if callList, ok := c.eventDispatcher[eventName]; ok {
+		c.eventDispatcher[eventName] = append(callList, callbackFunction)
+		err = errors.New("Communicator.Subscribe: cannot add callback to not existing event")
+	}
+	return err
+}
 
 func (c *Communicator) Init() {
 	ircCommands = map[string]ircCommand{
@@ -69,14 +80,16 @@ func (c *Communicator) Init() {
 
 	c.mQueue = make([]message, 0)
 
+	c.eventDispatcher = make(map[string]eventCallbackList)
+	c.eventDispatcher["*"] = make([]EventCallback, 0)
+
 	c.pMsg.done = true
 }
 
-func (c *Communicator) SendMessage(cmdName string, callback ResponseCallback, params ...interface{}) {
+func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
 	go func() {
 		c.msgs <- message{
 			wrapMessage(ircCommands[cmdName].format, cmdName, params...),
-			callback,
 			false,
 		}
 	}()
@@ -107,7 +120,7 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 }
 
 func (c *Communicator) send(writer chan<- []byte) {
-	if c.pMsg.done && len(c.mQueue) != 0 {
+	if len(c.mQueue) != 0 {
 		c.pMsg = c.mQueue[0]
 		c.mQueue = c.mQueue[1:]
 		go func() {
@@ -128,12 +141,20 @@ func router(c *Communicator, control <-chan int, messages <-chan message, writer
 			}
 		case buf = <-reader:
 			reply := string(buf)
-			reply = strings.TrimSuffix(reply, "\n")
 			reply = strings.TrimSuffix(reply, "\r")
+			reply = strings.TrimSuffix(reply, "\n")
 
-			c.OnMsg(reply)
-			c.pMsg.done = true
-			c.send(writer)
+			for _, v := range c.eventDispatcher {
+				// Check if event happens
+				if false {
+					for _, f := range v {
+						f(reply)
+					}
+				}
+			}
+			for _, f := range c.eventDispatcher["*"] {
+				f(reply)
+			}
 		case e := <-err:
 			if e != nil {
 				fmt.Println(e)
