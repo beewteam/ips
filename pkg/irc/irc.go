@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"errors"
+	"log"
+	"os"
 )
 
 type (
@@ -21,6 +23,7 @@ type (
 		writerOut chan []byte
 		errors    chan error
 		control   chan int
+		log  *log.Logger
 		eventDispatcher map[string]eventCallbackList
 		OnMsg   func(response string)
 		OnError func(err string)
@@ -83,6 +86,11 @@ func (c *Communicator) Init() {
 	c.eventDispatcher = make(map[string]eventCallbackList)
 	c.eventDispatcher["*"] = make([]EventCallback, 0)
 
+	file, err := os.Open("irc.log")
+	if err != nil {
+		c.log = log.New(file, "", log.LstdFlags)
+	}
+
 	c.pMsg.done = true
 }
 
@@ -111,8 +119,8 @@ func wrapMessage(format string, cmdName string, params ...interface{}) string {
 func (c *Communicator) Run(hostname string, port string) (err error) {
 	c.socket, err = net.Dial("tcp", hostname+":"+port)
 	if err == nil {
-		go reader(c.socket, c.control, c.readerIn, c.errors)
-		go writer(c.socket, c.control, c.writerOut, c.errors)
+		go reader(c, c.socket, c.control, c.readerIn, c.errors)
+		go writer(c, c.socket, c.control, c.writerOut, c.errors)
 		go router(c, c.control, c.msgs, c.writerOut, c.readerIn, c.errors)
 	}
 
@@ -166,7 +174,7 @@ func router(c *Communicator, control <-chan int, messages <-chan message, writer
 	}
 }
 
-func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
+func reader(c *Communicator, socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
 	var buf []byte
 	var rerr error
 
@@ -181,11 +189,13 @@ func reader(socket net.Conn, control <-chan int, out chan<- []byte, err chan<- e
 			}
 		case out <- buf:
 		case err <- rerr:
+			c.log.Println("Unexpected end of communication")
+			return
 		}
 	}
 }
 
-func writer(socket net.Conn, control <-chan int, in <-chan []byte, err chan<- error) {
+func writer(c *Communicator, socket net.Conn, control <-chan int, in <-chan []byte, err chan<- error) {
 	var werr error
 
 	for {
