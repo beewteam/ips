@@ -15,3 +15,8 @@
 
 # File with program version created by git generate
 program-version
+
+build
+build/*
+
+version.go

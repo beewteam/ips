@@ -1,0 +1,10 @@
+language: go
+
+install:
+- go get github.com/golang/lint/golint  
+
+go_import_path: github.com/beewteam/ips
+
+script:
+- $HOME/gopath/bin/golint ./...
+- ./build.sh
