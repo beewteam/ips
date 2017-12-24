@@ -16,5 +16,5 @@ If you want to run a project, you need to follow the instructions:
 To successfully compile this program you need to install golang compiler, you can get it [here](https://golang.org/doc/install)
 
 # Docker
-docker build -t my-image .
-docker run <some options> my-image <some options>
+* docker build -t my-image.
+* docker run <some options> my-image <some options>
