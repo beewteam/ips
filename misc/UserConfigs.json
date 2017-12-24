@@ -1,0 +1,11 @@
+{
+        "UserData": {
+                "nickname": "",
+                "password": "",
+                "chat": ""
+        },
+        "ServerData": {
+                "hostname": "",
+                "port": ""
+        }
+}
