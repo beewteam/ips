@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -15,14 +16,12 @@ type EventCallback func(eventName string)
 
 type ResponseCallback func(response string, err string)
 type Communicator struct {
-	socket net.Conn
-	pMsg   message
-	mQueue []message
-	msgs   chan message
-	//readerIn        chan []byte
-	//writerOut       chan []byte
-	//errors          chan error
-	//control         chan int
+	socket  net.Conn
+	pMsg    message
+	mQueue  []message
+	msgs    chan message
+	workers []*Worker
+
 	log             *logrus.Logger
 	eventDispatcher map[string]eventCallbackList
 	OnMsg           func(response string)
@@ -46,6 +45,7 @@ const (
 	warningError = "1"
 
 	exitCtrl = 1
+	timeout  = 10 * time.Second
 )
 
 var (
@@ -78,6 +78,7 @@ func (c *Communicator) Subscribe(eventName string, callbackFunction EventCallbac
 
 func (c *Communicator) Init() {
 	ircCommands = map[string]ircCommand{
+		"USER":    {tCmdName + " %s %s %s :%s"},
 		"PING":    {tCmdName + " %s"},
 		"PART":    {tCmdName + " %s"},
 		"NICK":    {tCmdName + " %s"},
@@ -115,10 +116,9 @@ func (c *Communicator) SetLog(logPath string) error {
 }
 
 func (c *Communicator) Close() {
-	//c.control <- exitCtrl
-	//c.control <- exitCtrl
-	//c.control <- exitCtrl
-
+	for _, v := range c.workers {
+		v.ctl <- true
+	}
 	c.socket.Close()
 }
 
@@ -132,10 +132,14 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	if err == nil {
 		writerChan := make(chan []byte)
 		errorsChan := make(chan error)
-		ctl := make(chan bool)
+		ctlR := make(chan bool, 1)
+		ctlW := make(chan bool, 1)
 
-		var readerW = NewWorker(nil, errorsChan, ctl)
-		var writerW = NewWorker(writerChan, errorsChan, ctl)
+		var readerW = NewWorker(nil, errorsChan, ctlR)
+		var writerW = NewWorker(writerChan, errorsChan, ctlW)
+
+		c.workers = append(c.workers, readerW)
+		c.workers = append(c.workers, readerW)
 
 		go reader(c, readerW)
 		go writer(c, writerW)
@@ -144,22 +148,11 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 	return err
 }
 
-func (c *Communicator) send(writer chan<- []byte) {
-	if len(c.mQueue) != 0 {
-		c.pMsg = c.mQueue[0]
-		c.mQueue = c.mQueue[1:]
-		go func() {
-			writer <- []byte(c.pMsg.data)
-		}()
-	}
-}
-
 func reader(c *Communicator, w *Worker) {
 	var buf = make([]byte, protoMaxLength)
 	var rerr error
 
 	for {
-		_, rerr = c.socket.Read(buf)
 		select {
 		case <-w.ctl:
 			return
@@ -169,7 +162,13 @@ func reader(c *Communicator, w *Worker) {
 				close(w.err)
 				return
 			}
-		case w.out <- buf:
+		default:
+			c.socket.SetReadDeadline(time.Now().Add(timeout))
+			_, rerr = c.socket.Read(buf)
+			if rerr != nil {
+				return
+			}
+
 			reply := string(buf)
 			reply = strings.TrimSuffix(reply, "\r")
 			reply = strings.TrimSuffix(reply, "\n")
@@ -203,6 +202,7 @@ func writer(c *Communicator, w *Worker) {
 				return
 			}
 		case data := <-w.in:
+			c.socket.SetWriteDeadline(time.Now().Add(timeout))
 			_, werr = c.socket.Write(data)
 		}
 	}

@@ -3,7 +3,6 @@ package irc
 import (
 	"bufio"
 	"io"
-	"os"
 	"strings"
 	"sync"
 )
@@ -144,19 +143,8 @@ func help(c *Client, params []string) (output []string) {
 	return
 }
 
-func ListAvaiableServers(c *Client, msg string) {
+func (c *Client) Run() {
 
-}
-
-func (c *Client) Run() bool {
-	var wg sync.WaitGroup
-
-	r := bufio.NewReader(os.Stdin)
-	w := bufio.NewWriter(os.Stdout)
-	c.addListener(&wg, r, w)
-
-	wg.Wait()
-	return true
 }
 
 func (c *Client) Init() bool {
