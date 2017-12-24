@@ -1,47 +1,42 @@
 package irc
 
 import (
-	"fmt"
-	"net"
-	"strconv"
-	"strings"
 	"errors"
-	"log"
+	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
+	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
-type (
-	EventCallback func(eventName string)
-	
-	ResponseCallback func(response string, err string)
-	Communicator struct {
-		socket    net.Conn
-		pMsg      message
-		mQueue    []message
-		msgs      chan message
-		readerIn  chan []byte
-		writerOut chan []byte
-		errors    chan error
-		control   chan int
-		log  *log.Logger
-		eventDispatcher map[string]eventCallbackList
-		OnMsg   func(response string)
-		OnError func(err string)
-	}
-)
+type EventCallback func(eventName string)
 
-type (
-	eventCallbackList []EventCallback
+type ResponseCallback func(response string, err string)
+type Communicator struct {
+	socket net.Conn
+	pMsg   message
+	mQueue []message
+	msgs   chan message
+	//readerIn        chan []byte
+	//writerOut       chan []byte
+	//errors          chan error
+	//control         chan int
+	log             *logrus.Logger
+	eventDispatcher map[string]eventCallbackList
+	OnMsg           func(response string)
+	OnError         func(err string)
+}
 
-	ircCommand struct {
-		format string
-	}
-
-	message struct {
-		data string
-		done bool
-	}
-)
+type eventCallbackList []EventCallback
+type ircCommand struct {
+	format string
+}
+type message struct {
+	data string
+	done bool
+}
 
 const (
 	tCmdName       = "@@CmdName@@"
@@ -56,6 +51,22 @@ const (
 var (
 	ircCommands map[string]ircCommand
 )
+
+type Worker struct {
+	in  chan []byte
+	out chan []byte
+	err chan error
+	ctl chan bool
+}
+
+func NewWorker(in chan []byte, err chan error, ctl chan bool) *Worker {
+	return &Worker{
+		in:  in,
+		out: make(chan []byte),
+		err: err,
+		ctl: ctl,
+	}
+}
 
 func (c *Communicator) Subscribe(eventName string, callbackFunction EventCallback) (err error) {
 	if callList, ok := c.eventDispatcher[eventName]; ok {
@@ -74,24 +85,15 @@ func (c *Communicator) Init() {
 		"TOPIC":   {tCmdName + " %s :%s"},
 		"PRIVMSG": {tCmdName + " %s :%s"},
 	}
-
-	c.readerIn = make(chan []byte)
-	c.writerOut = make(chan []byte)
-	c.errors = make(chan error)
-	c.control = make(chan int)
 	c.msgs = make(chan message)
-
 	c.mQueue = make([]message, 0)
 
 	c.eventDispatcher = make(map[string]eventCallbackList)
 	c.eventDispatcher["*"] = make([]EventCallback, 0)
 
-	file, err := os.Open("irc.log")
-	if err != nil {
-		c.log = log.New(file, "", log.LstdFlags)
-	}
+	c.log = logrus.New()
+	c.log.Out = ioutil.Discard
 
-	c.pMsg.done = true
 }
 
 func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
@@ -103,10 +105,19 @@ func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
 	}()
 }
 
+func (c *Communicator) SetLog(logPath string) error {
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY, 0655)
+	if err == nil {
+		c.log.Out = file
+
+	}
+	return err
+}
+
 func (c *Communicator) Close() {
-	c.control <- exitCtrl
-	c.control <- exitCtrl
-	c.control <- exitCtrl
+	//c.control <- exitCtrl
+	//c.control <- exitCtrl
+	//c.control <- exitCtrl
 
 	c.socket.Close()
 }
@@ -119,9 +130,15 @@ func wrapMessage(format string, cmdName string, params ...interface{}) string {
 func (c *Communicator) Run(hostname string, port string) (err error) {
 	c.socket, err = net.Dial("tcp", hostname+":"+port)
 	if err == nil {
-		go reader(c, c.socket, c.control, c.readerIn, c.errors)
-		go writer(c, c.socket, c.control, c.writerOut, c.errors)
-		go router(c, c.control, c.msgs, c.writerOut, c.readerIn, c.errors)
+		writerChan := make(chan []byte)
+		errorsChan := make(chan error)
+		ctl := make(chan bool)
+
+		var readerW = NewWorker(nil, errorsChan, ctl)
+		var writerW = NewWorker(writerChan, errorsChan, ctl)
+
+		go reader(c, readerW)
+		go writer(c, writerW)
 	}
 
 	return err
@@ -137,17 +154,22 @@ func (c *Communicator) send(writer chan<- []byte) {
 	}
 }
 
-func router(c *Communicator, control <-chan int, messages <-chan message, writer chan<- []byte, reader <-chan []byte, err <-chan error) {
+func reader(c *Communicator, w *Worker) {
 	var buf = make([]byte, protoMaxLength)
+	var rerr error
 
 	for {
+		_, rerr = c.socket.Read(buf)
 		select {
-		case ctl := <-control:
-			fmt.Println("router ctl: " + strconv.FormatInt(int64(ctl), 10))
-			if ctl == exitCtrl {
+		case <-w.ctl:
+			return
+		case w.err <- rerr:
+			if rerr != nil {
+				c.log.Info(rerr.Error())
+				close(w.err)
 				return
 			}
-		case buf = <-reader:
+		case w.out <- buf:
 			reply := string(buf)
 			reply = strings.TrimSuffix(reply, "\r")
 			reply = strings.TrimSuffix(reply, "\n")
@@ -163,52 +185,25 @@ func router(c *Communicator, control <-chan int, messages <-chan message, writer
 			for _, f := range c.eventDispatcher["*"] {
 				f(reply)
 			}
-		case e := <-err:
-			if e != nil {
-				fmt.Println(e)
-			}
-		case msg := <-messages:
-			c.mQueue = append(c.mQueue, msg)
-			c.send(writer)
 		}
 	}
 }
 
-func reader(c *Communicator, socket net.Conn, control <-chan int, out chan<- []byte, err chan<- error) {
-	var buf []byte
-	var rerr error
-
-	for {
-		buf = make([]byte, protoMaxLength)
-		_, rerr = socket.Read(buf)
-		select {
-		case ctl := <-control:
-			fmt.Println("writer ctl: " + strconv.FormatInt(int64(ctl), 10))
-			if ctl == exitCtrl {
-				return
-			}
-		case out <- buf:
-		case err <- rerr:
-			c.log.Println("Unexpected end of communication")
-			return
-		}
-	}
-}
-
-func writer(c *Communicator, socket net.Conn, control <-chan int, in <-chan []byte, err chan<- error) {
+func writer(c *Communicator, w *Worker) {
 	var werr error
 
 	for {
 		select {
-		case ctl := <-control:
-			fmt.Println("reader ctl: " + strconv.FormatInt(int64(ctl), 10))
-			if ctl == exitCtrl {
+		case <-w.ctl:
+			return
+		case w.err <- werr:
+			if werr != nil {
+				c.log.Info(werr.Error())
+				close(w.err)
 				return
 			}
-		case err <- werr:
-		case data := <-in:
-			_, werr = socket.Write(data)
-
+		case data := <-w.in:
+			_, werr = c.socket.Write(data)
 		}
 	}
 }

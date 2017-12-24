@@ -6,6 +6,7 @@ set -o errexit
 EXTERNAL_DEPENDENCIES=(
         "golang.org/x/crypto/ssh/terminal"
         "github.com/stretchr/testify/assert"
+        "github.com/sirupsen/logrus"
 )
 
 COMPONENTS=(

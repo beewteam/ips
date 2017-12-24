@@ -35,13 +35,16 @@ func main() {
 			Port:     settings.ServerData.Port},
 	}*/
 
-	//client.Init()
-	//client.Run()
 	var com irc.Communicator
 	com.Init()
 	defer com.Close()
+	errlog := com.SetLog("irc.log")
+	if errlog != nil {
+		fmt.Println("Cannot setup log file")
+		return
+	}
 	com.Subscribe("*", printM)
-	
+
 	err := com.Run("irc.freenode.com", "8000")
 	if err != nil {
 		fmt.Printf("Cannot run communicator\n")
