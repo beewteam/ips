@@ -18,10 +18,14 @@ type Communicator struct {
 	socket  net.Conn
 	workers []*Worker
 
+	hostname string
+	port     string
+
 	log             *logrus.Logger
 	eventDispatcher map[string]eventCallbackList
 	OnMsg           func(response string)
 	OnError         func(err string)
+	timeout         int
 }
 
 type eventCallbackList []EventCallback
@@ -33,8 +37,6 @@ const (
 	tCmdName       = "@@CmdName@@"
 	protoDelim     = "\r\n"
 	protoMaxLength = 512
-
-	timeout = 10 * time.Second
 )
 
 var (
@@ -76,6 +78,7 @@ func (c *Communicator) Init() {
 		"PRIVMSG": {tCmdName + " %s :%s"},
 	}
 
+	c.timeout = 2
 	c.eventDispatcher = make(map[string]eventCallbackList)
 	c.eventDispatcher["*"] = make([]EventCallback, 0)
 
@@ -120,6 +123,8 @@ func wrapMessage(format string, cmdName string, params ...interface{}) string {
 
 func (c *Communicator) Run(hostname string, port string) (err error) {
 	c.socket, err = net.Dial("tcp", hostname+":"+port)
+	c.hostname = hostname
+	c.port = port
 
 	if err == nil {
 		writerChan := make(chan []byte)
@@ -155,10 +160,22 @@ func reader(c *Communicator, w *Worker) {
 				return
 			}
 		default:
-			c.socket.SetReadDeadline(time.Now().Add(timeout))
 			_, rerr = c.socket.Read(buf)
 			if rerr != nil {
-				return
+				for {
+					var err error
+					c.socket, err = net.Dial("tcp", c.hostname+":"+c.port)
+					if err != nil {
+						c.log.Info("Try to reconnect: " + time.Now().String())
+						time.Sleep(time.Duration(c.timeout) * time.Millisecond)
+						c.timeout = c.timeout * 2
+					} else {
+						c.timeout = 2
+						c.log.Info("Reconnected:" + time.Now().String())
+						break
+					}
+					c.log.Info(c.timeout)
+				}
 			}
 
 			reply := string(buf)
@@ -186,7 +203,8 @@ func writer(c *Communicator, w *Worker) {
 				return
 			}
 		case data := <-w.in:
-			c.socket.SetWriteDeadline(time.Now().Add(timeout))
+			_ = data
+			c.socket.SetWriteDeadline(time.Now().Add(1 * time.Second))
 			_, werr = c.socket.Write(data)
 		}
 	}
