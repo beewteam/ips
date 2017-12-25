@@ -33,7 +33,10 @@ VR
 generate_version() {
         local gitVersion=$(git describe)
         local programVersion=$(sed "s/@@VERSION_PLACEHOLDER@@/${gitVersion}/g" <<< ${VERSION_TEMPLATE})
-        echo "${programVersion}" | tee cmd/client/version.go cmd/server/version.go
+        for component in ${COMPONENTS[@]}
+        do
+                echo -e "${programVersion}" > "${component}/version.go"
+        done
 }
 
 resolve_deps() {
