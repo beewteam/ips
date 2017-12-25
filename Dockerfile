@@ -6,4 +6,5 @@ COPY . .
 RUN go get github.com/beewteam/ips; exit 0
 RUN ./build.sh
 
-CMD ["build/irc-client", "run"]
+CMD ["build/client", "run-cli"]
+CMD ["build/server", "run-serv"]
