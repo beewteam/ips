@@ -17,5 +17,4 @@ To successfully compile this program you need to install golang compiler, you ca
 
 # Docker
 * docker build -t irc .
-* docker run  // for client
-* docker run  // for server
+* docker run irc
