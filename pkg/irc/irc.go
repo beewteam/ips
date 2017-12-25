@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -107,7 +108,12 @@ func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
 }
 
 func (c *Communicator) SetLog(logPath string) error {
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY, 0655)
+	err := os.Mkdir("log", 0655)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(filepath.Join("log", logPath), os.O_CREATE|os.O_WRONLY, 0655)
 	if err == nil {
 		c.log.Out = file
 

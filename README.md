@@ -16,5 +16,6 @@ If you want to run a project, you need to follow the instructions:
 To successfully compile this program you need to install golang compiler, you can get it [here](https://golang.org/doc/install)
 
 # Docker
-* docker build -t irc.
-* docker run irc
+* docker build -t irc .
+* docker run  // for client
+* docker run  // for server

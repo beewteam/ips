@@ -23,4 +23,6 @@ func main() {
 	if err := client.Run(); err != nil {
 		panic(color.RedString("client") + ": " + err.Error())
 	}
+
+	client.Close()
 }
