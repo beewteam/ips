@@ -6,7 +6,6 @@ import (
 
 type ChatArea struct {
 	chatBox    *tui.Box
-	header     *tui.Entry
 	messages   *tui.Box
 	scrollArea *tui.ScrollArea
 
@@ -14,34 +13,29 @@ type ChatArea struct {
 }
 
 func NewChatArea() *ChatArea {
-	header := tui.NewEntry()
-	header.SetText("Chat:")
-
 	messages := tui.NewVBox()
 	scrollArea := tui.NewScrollArea(messages)
+	messages.SetSizePolicy(tui.Expanding, tui.Minimum)
 
 	chat := tui.NewVBox(
-		header,
 		scrollArea,
 	)
-	chat.SetSizePolicy(tui.Maximum, tui.Maximum)
+	chat.SetSizePolicy(tui.Expanding, tui.Minimum)
 	chat.SetBorder(true)
 
 	return &ChatArea{
 		chatBox:    chat,
-		header:     header,
 		messages:   messages,
 		scrollArea: scrollArea,
 	}
 }
 
 func (ca *ChatArea) AddNewMessage(msg string) {
-	entry := tui.NewEntry()
-	entry.SetText(msg)
+	entry := tui.NewLabel(msg)
 	ca.messages.Append(entry)
 
 	ca.msgNr++
-	if ca.msgNr > ca.chatBox.Size().Y/ca.header.Size().Y {
+	if ca.msgNr > ca.chatBox.Size().Y-10 {
 		ca.scrollArea.Scroll(0, 1)
 	}
 }

@@ -15,8 +15,9 @@ func main() {
 	flag.StringVar(&configFile, "c", "UserConfigs.json", "path to config file in json, default==UserConfigs.json in pwd")
 	flag.Parse()
 
-	client := NewClient(configFile)
-	if client == nil {
+	client, err := NewClient(configFile)
+	if err != nil {
+		fmt.Println(err.Error())
 		panic(color.RedString("client") + ": cannot create client")
 	}
 

@@ -29,6 +29,7 @@ func ParseConfigFile(configPath string) (config UserConfig, err error) {
 		defer file.Close()
 		if err != nil {
 			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 
 		err = json.NewDecoder(file).Decode(&config)

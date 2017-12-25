@@ -64,8 +64,10 @@ func (c *Client) setupUI() {
 	input.SetSizePolicy(tui.Expanding, tui.Maximum)
 	input.OnSubmit(func(entry *tui.Entry) {
 		userInputLine := entry.Text()
-		c.handleUserInput(userInputLine)
-		c.chat.AddNewMessage(userInputLine)
+		if len(userInputLine) > 0 {
+			c.handleUserInput(userInputLine)
+			c.chat.AddNewMessage(userInputLine)
+		}
 		entry.SetText("")
 	})
 
@@ -84,7 +86,7 @@ func (c *Client) setupUI() {
 		tui.NewLabel("Statusbar:"),
 		statusbar)
 	statusbarBox.SetBorder(true)
-	statusbarBox.SetSizePolicy(tui.Expanding, tui.Maximum)
+	statusbarBox.SetSizePolicy(tui.Expanding, tui.Minimum)
 
 	root := tui.NewVBox(
 		tui.NewHBox(
@@ -98,16 +100,18 @@ func (c *Client) setupUI() {
 	//c.ui.SetKeybinding("Down", func() { msgArea.Scroll(0, -1) })
 }
 
-func NewClient(configFile string) *Client {
+func NewClient(configFile string) (*Client, error) {
 	var settings UserConfig
 
 	fmt.Printf("Trying to load %s\n", color.GreenString(configFile))
-	if _, err := os.Stat(configFile); err != nil {
+	if _, err := os.Stat(configFile); !os.IsNotExist(err) {
 		settings, err = ParseConfigFile(configFile)
 		if err != nil {
 			fmt.Println(color.RedString("client") + ": cannot load config")
-			panic(err)
+			return nil, err
 		}
+	} else {
+		return nil, err
 	}
 
 	c := &Client{
@@ -121,10 +125,9 @@ func NewClient(configFile string) *Client {
 		},
 		IsRegistered: false,
 	}
-
 	c.setupUI()
 
-	return c
+	return c, nil
 }
 
 func (c *Client) postMessageInChat(msg string) {

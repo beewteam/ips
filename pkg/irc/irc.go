@@ -108,9 +108,11 @@ func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
 }
 
 func (c *Communicator) SetLog(logPath string) error {
-	err := os.Mkdir("log", 0655)
-	if err != nil {
-		return err
+	if _, err := os.Stat("log"); os.IsNotExist(err) {
+		err = os.Mkdir("log", 0755)
+		if err != nil {
+			return err
+		}
 	}
 
 	file, err := os.OpenFile(filepath.Join("log", logPath), os.O_CREATE|os.O_WRONLY, 0655)

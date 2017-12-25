@@ -42,7 +42,7 @@ run_test() {
         do
                 cd "${component}"
                 go test || exit 1
-                cd ${PROJECT_DIR}
+                cd "${PROJECT_DIR}"
         done
 }
 
