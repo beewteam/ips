@@ -36,8 +36,12 @@ func TestGetClientFromName(t *testing.T) {
 	assert.Equal(testClient1, mockServer.getClientFromName("test"), "Should be nil")
 
 	var testClient2 = Client{
-		"Mad Client",
+		net.Dial("tcp", "golang.org:80")
 		make(map[*Room]bool),
+		"Mad Client",
+		"Mad Client",
+		"Mad Client",
+		"Host",		
 	}
 	mockServer.clients[&testClient2] = true
 	assert.Equal(&testClient2, mockServer.getClientFromName("Mad Client"), "Should be not nil")
