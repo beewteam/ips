@@ -3,6 +3,7 @@ package main
 import (
 	"sync"
 	"testing"
+	"net"
 
 	"github.com/stretchr/testify/assert"
 )
