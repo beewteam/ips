@@ -14,13 +14,8 @@ import (
 )
 
 type EventCallback func(eventName string)
-
-type ResponseCallback func(response string, err string)
 type Communicator struct {
 	socket  net.Conn
-	pMsg    message
-	mQueue  []message
-	msgs    chan message
 	workers []*Worker
 
 	log             *logrus.Logger
@@ -33,20 +28,13 @@ type eventCallbackList []EventCallback
 type ircCommand struct {
 	format string
 }
-type message struct {
-	data string
-	done bool
-}
 
 const (
 	tCmdName       = "@@CmdName@@"
 	protoDelim     = "\r\n"
 	protoMaxLength = 512
 
-	warningError = "1"
-
-	exitCtrl = 1
-	timeout  = 10 * time.Second
+	timeout = 10 * time.Second
 )
 
 var (
@@ -87,8 +75,6 @@ func (c *Communicator) Init() {
 		"TOPIC":   {tCmdName + " %s :%s"},
 		"PRIVMSG": {tCmdName + " %s :%s"},
 	}
-	c.msgs = make(chan message)
-	c.mQueue = make([]message, 0)
 
 	c.eventDispatcher = make(map[string]eventCallbackList)
 	c.eventDispatcher["*"] = make([]EventCallback, 0)
@@ -100,10 +86,7 @@ func (c *Communicator) Init() {
 
 func (c *Communicator) SendMessage(cmdName string, params ...interface{}) {
 	go func() {
-		c.msgs <- message{
-			wrapMessage(ircCommands[cmdName].format, cmdName, params...),
-			false,
-		}
+		c.workers[2].in <- []byte(wrapMessage(ircCommands[cmdName].format, cmdName, params...))
 	}()
 }
 
@@ -137,6 +120,7 @@ func wrapMessage(format string, cmdName string, params ...interface{}) string {
 
 func (c *Communicator) Run(hostname string, port string) (err error) {
 	c.socket, err = net.Dial("tcp", hostname+":"+port)
+
 	if err == nil {
 		writerChan := make(chan []byte)
 		errorsChan := make(chan error)
@@ -147,7 +131,7 @@ func (c *Communicator) Run(hostname string, port string) (err error) {
 		var writerW = NewWorker(writerChan, errorsChan, ctlW)
 
 		c.workers = append(c.workers, readerW)
-		c.workers = append(c.workers, readerW)
+		c.workers = append(c.workers, writerW)
 
 		go reader(c, readerW)
 		go writer(c, writerW)
@@ -181,14 +165,6 @@ func reader(c *Communicator, w *Worker) {
 			reply = strings.TrimSuffix(reply, "\r")
 			reply = strings.TrimSuffix(reply, "\n")
 
-			for _, v := range c.eventDispatcher {
-				// Check if event happens
-				if false {
-					for _, f := range v {
-						f(reply)
-					}
-				}
-			}
 			for _, f := range c.eventDispatcher["*"] {
 				f(reply)
 			}
