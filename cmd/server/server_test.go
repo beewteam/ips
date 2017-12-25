@@ -39,3 +39,27 @@ func TestInvalidResponse(t *testing.T) {
 
 	mock.AssertExpectations(t)
 }
+
+func TestClientGetSet(t *testing.T) {
+	assert := assert.New(t)
+	client := Client{}
+
+	assert.Equal(false, setClientNickname(&client, ""), "Should be false")
+
+	assert.Equal("", getClientNickname(nil), "Should be false")
+}
+
+func TestNickCommand(t *testing.T) {
+	mock := connMockObject{}
+
+	testServer := Server{}
+	testString := []string{"ol", "mol"}
+	command := Command{}
+	command.client = &Client{}
+	command.client.conn = &mock
+
+	mock.On("Write", []byte("Invalid syntax\n")).Return(15, nil)
+	handleUserCommand(&testServer, testString, &command)
+
+	mock.AssertExpectations(t)
+}
