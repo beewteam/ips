@@ -5,7 +5,7 @@
                 "chat": "go-nuts"
         },
         "ServerData": {
-                "hostname": "irc.freenode.net",
+                "hostname": "localhost",
                 "port": "6667"
         }
 }
