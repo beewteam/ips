@@ -39,3 +39,12 @@ func TestInvalidResponse(t *testing.T) {
 
 	mock.AssertExpectations(t)
 }
+
+func TestClientGetSet(t *testing.T) {
+	assert := assert.New(t)
+	client := Client{}
+
+	assert.Equal(false, setClientNickname(&client, ""), "Should be false")
+
+	assert.Equal("", getClientNickname(nil), "Should be false")
+}

@@ -71,6 +71,21 @@ type Server struct {
 	mutex   sync.Mutex
 }
 
+func setClientNickname(c *Client, name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	c.nickname = name
+	return true
+}
+
+func getClientNickname(c *Client) string {
+	if c == nil {
+		return ""
+	}
+	return c.nickname
+}
+
 func handleJoinCommand(s *Server, parameters []string, command *Command) {
 
 	if len(parameters) == 0 {
