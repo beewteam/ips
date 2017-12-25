@@ -165,13 +165,8 @@ func help(c *Client, params []string) (output []string) {
 }
 
 func (c *Client) setupUI() {
-	channelList := tui.NewList()
-	sidebar := tui.NewVBox(
-		tui.NewLabel("Channels:"),
-		channelList,
-		tui.NewSpacer())
-	sidebar.SetBorder(true)
-	c.desk["channel_list"] = channelList
+	// Channel sidebar
+	channels := ui.NewChannelBar()
 
 	// ChatArea
 	chat := ui.NewChatArea()
@@ -191,7 +186,7 @@ func (c *Client) setupUI() {
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
 
 	mainView := tui.NewVBox(
-		chat,
+		chat.ToWidget(),
 		inputBox)
 
 	statusbar := tui.NewStatusBar("")
@@ -204,7 +199,7 @@ func (c *Client) setupUI() {
 
 	root := tui.NewVBox(
 		tui.NewHBox(
-			sidebar,
+			channels.ToWidget(),
 			mainView),
 		statusbar)
 

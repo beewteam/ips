@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"image"
-
 	tui "github.com/marcusolsson/tui-go"
 )
 
@@ -11,6 +9,8 @@ type ChatArea struct {
 	header     *tui.Entry
 	messages   *tui.Box
 	scrollArea *tui.ScrollArea
+
+	msgNr int
 }
 
 func NewChatArea() *ChatArea {
@@ -18,52 +18,34 @@ func NewChatArea() *ChatArea {
 	header.SetText("Chat:")
 
 	messages := tui.NewVBox()
-	msgArea := tui.NewScrollArea(messages)
+	scrollArea := tui.NewScrollArea(messages)
 
 	chat := tui.NewVBox(
 		header,
-		msgArea,
+		scrollArea,
 	)
+	chat.SetSizePolicy(tui.Maximum, tui.Maximum)
+	chat.SetBorder(true)
 
 	return &ChatArea{
 		chatBox:    chat,
 		header:     header,
 		messages:   messages,
-		scrollArea: msgArea,
+		scrollArea: scrollArea,
 	}
 }
 
 func (ca *ChatArea) AddNewMessage(msg string) {
-	ca.scrollArea.Scroll(0, -1)
 	entry := tui.NewEntry()
 	entry.SetText(msg)
 	ca.messages.Append(entry)
+
+	ca.msgNr++
+	if ca.msgNr > ca.chatBox.Size().Y/ca.header.Size().Y {
+		ca.scrollArea.Scroll(0, 1)
+	}
 }
 
-func (ca *ChatArea) MinSizeHint() image.Point {
-	return ca.chatBox.MinSizeHint()
-}
-
-// SizeHint returns the size hint of the underlying widget.
-func (ca *ChatArea) SizeHint() image.Point {
-	return ca.chatBox.SizeHint()
-}
-
-// SizePolicy returns the default layout behavior.
-func (ca *ChatArea) SizePolicy() (tui.SizePolicy, tui.SizePolicy) {
-	return ca.chatBox.SizePolicy()
-}
-
-// Draw draws the scroll area.
-func (ca *ChatArea) Draw(p *tui.Painter) {
-	ca.chatBox.Draw(p)
-}
-
-// Resize resizes the scroll area and the underlying widget.
-func (ca *ChatArea) Resize(size image.Point) {
-	ca.chatBox.Resize(size)
-}
-
-func (ca *ChatArea) Size() image.Point {
-	return ca.chatBox.Size()
+func (ca *ChatArea) ToWidget() tui.Widget {
+	return ca.chatBox
 }

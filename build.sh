@@ -9,6 +9,7 @@ EXTERNAL_DEPENDENCIES=(
         "github.com/sirupsen/logrus"
         "github.com/chzyer/readline"
         "github.com/fatih/color"
+        "github.com/marcusolsson/tui-go"
 )
 
 COMPONENTS=(
