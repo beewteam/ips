@@ -36,7 +36,7 @@ func TestGetClientFromName(t *testing.T) {
 	}
 	
 	assert.Equal(testClient1, mockServer.getClientFromName("test"), "Should be nil")
-	conn12, err12 := net.Dial("tcp", service)
+	conn12, err12 := net.Dial("tcp", "golang.org:80")
 	var testClient2 = Client{
 		conn12,
 		make(map[*Room]bool),
