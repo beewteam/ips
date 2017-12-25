@@ -32,7 +32,7 @@ VR
 generate_version() {
         local gitVersion=$(git describe)
         local programVersion=$(sed "s/@@VERSION_PLACEHOLDER@@/${gitVersion}/g" <<< ${VERSION_TEMPLATE})
-        echo "${programVersion}" | tee cmd/client/version.go cmd/server/version.go > /dev/null
+        echo "${programVersion}" | tee cmd/client/version.go cmd/server/version.go
 }
 
 resolve_deps() {
