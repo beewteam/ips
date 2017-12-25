@@ -48,3 +48,18 @@ func TestClientGetSet(t *testing.T) {
 
 	assert.Equal("", getClientNickname(nil), "Should be false")
 }
+
+func TestNickCommand(t *testing.T) {
+	mock := connMockObject{}
+
+	testServer := Server{}
+	testString := []string{"ol", "mol"}
+	command := Command{}
+	command.client = &Client{}
+	command.client.conn = &mock
+
+	mock.On("Write", []byte("Invalid syntax\n")).Return(15, nil)
+	handleUserCommand(&testServer, testString, &command)
+
+	mock.AssertExpectations(t)
+}
